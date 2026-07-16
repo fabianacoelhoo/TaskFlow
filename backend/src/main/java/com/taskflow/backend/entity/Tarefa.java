@@ -19,7 +19,8 @@ public class Tarefa {
 
     private String descricao;
 
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private StatusTarefa status;
 
     private String prioridade;
 

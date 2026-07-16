@@ -3,6 +3,7 @@ package com.taskflow.backend.service;
 import com.taskflow.backend.dto.auth.LoginRequestDTO;
 import com.taskflow.backend.dto.auth.LoginResponseDTO;
 import com.taskflow.backend.entity.Usuario;
+import com.taskflow.backend.exception.CredenciaisInvalidasException;
 import com.taskflow.backend.repository.UsuarioRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,10 +28,10 @@ public class AuthService {
     public LoginResponseDTO login(LoginRequestDTO dto) {
 
         Usuario usuario = usuarioRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> new RuntimeException("Email ou senha inválidos."));
+                .orElseThrow(() -> new CredenciaisInvalidasException("Email ou senha inválidos."));
 
         if (!passwordEncoder.matches(dto.getSenha(), usuario.getSenha())) {
-            throw new RuntimeException("Email ou senha inválidos.");
+            throw new CredenciaisInvalidasException("Email ou senha inválidos.");
         }
 
         String token = jwtService.gerarToken(usuario.getEmail());

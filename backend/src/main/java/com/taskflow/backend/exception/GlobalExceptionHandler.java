@@ -19,4 +19,22 @@ public class GlobalExceptionHandler {
                 .body(Map.of("erro", ex.getMessage()));
     }
 
+    @ExceptionHandler(RecursoNaoEncontradoException.class)
+    public ResponseEntity<Map<String, String>> tratarRecursoNaoEncontrado(
+            RecursoNaoEncontradoException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(Map.of("erro", ex.getMessage()));
+    }
+
+    @ExceptionHandler(CredenciaisInvalidasException.class)
+    public ResponseEntity<Map<String, String>> tratarCredenciaisInvalidas(
+            CredenciaisInvalidasException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("erro", ex.getMessage()));
+    }
+
 }
