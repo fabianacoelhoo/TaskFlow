@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import com.taskflow.backend.exception.EmailJaCadastradoException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
+import java.util.List;
+
 @Service
 public class UsuarioService {
 
@@ -47,5 +49,17 @@ public class UsuarioService {
 
 
         return resposta;
+    }
+
+    public List<UsuarioResponseDTO> listarUsuarios() {
+        return usuarioRepository.findAll().stream()
+                .map(usuario -> {
+                    UsuarioResponseDTO dto = new UsuarioResponseDTO();
+                    dto.setId(usuario.getId());
+                    dto.setNome(usuario.getNome());
+                    dto.setEmail(usuario.getEmail());
+                    return dto;
+                })
+                .toList();
     }
 }

@@ -1,0 +1,245 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Box, Chip, IconButton, Skeleton, Stack, Typography } from '@mui/material';
+import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import { useNavigate, useParams } from 'react-router-dom';
+import { PageHeader } from '../components/PageHeader';
+import { TaskCard } from '../components/TaskCard';
+import { TaskFormDialog } from '../components/TaskFormDialog';
+import { TaskDetailDrawer } from '../components/TaskDetailDrawer';
+import {
+  atualizarTarefa,
+  listarProjetos,
+  listarTarefasPorProjeto,
+  listarUsuarios,
+} from '../api/resources';
+import type { Projeto, StatusTarefa, Tarefa, Usuario } from '../api/types';
+import { STATUS_COLOR, STATUS_LABEL, STATUS_ORDER } from '../theme/status';
+import { palette } from '../theme/theme';
+
+export function KanbanPage() {
+  const { id } = useParams();
+  const projetoId = Number(id);
+  const navigate = useNavigate();
+
+  const [projeto, setProjeto] = useState<Projeto | null>(null);
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  const [dialogAberto, setDialogAberto] = useState(false);
+  const [statusNovaTarefa, setStatusNovaTarefa] = useState<StatusTarefa>('A_FAZER');
+  const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null);
+  const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
+
+  function carregar() {
+    Promise.all([listarTarefasPorProjeto(projetoId), listarUsuarios()]).then(
+      ([tarefasCarregadas, usuariosCarregados]) => {
+        setTarefas(tarefasCarregadas);
+        setUsuarios(usuariosCarregados);
+        setCarregando(false);
+      },
+    );
+  }
+
+  useEffect(() => {
+    listarProjetos().then((lista) => {
+      setProjeto(lista.find((p) => p.id === projetoId) ?? null);
+    });
+    carregar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projetoId]);
+
+  const usuariosPorId = useMemo(() => {
+    const mapa = new Map<number, Usuario>();
+    usuarios.forEach((u) => mapa.set(u.id, u));
+    return mapa;
+  }, [usuarios]);
+
+  const colunas = useMemo(() => {
+    const grupos: Record<StatusTarefa, Tarefa[]> = {
+      A_FAZER: [],
+      EM_ANDAMENTO: [],
+      CONCLUIDO: [],
+    };
+    tarefas.forEach((t) => grupos[t.status].push(t));
+    return grupos;
+  }, [tarefas]);
+
+  async function handleDragEnd(result: DropResult) {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+
+    const novoStatus = destination.droppableId as StatusTarefa;
+    const tarefa = tarefas.find((t) => String(t.id) === draggableId);
+    if (!tarefa) return;
+
+    const anteriores = tarefas;
+    setTarefas((atual) =>
+      atual.map((t) => (t.id === tarefa.id ? { ...t, status: novoStatus } : t)),
+    );
+
+    try {
+      await atualizarTarefa(tarefa.id, {
+        titulo: tarefa.titulo,
+        descricao: tarefa.descricao,
+        status: novoStatus,
+        prioridade: tarefa.prioridade ?? 'MEDIA',
+        prazo: tarefa.prazo,
+      });
+    } catch {
+      setTarefas(anteriores);
+    }
+  }
+
+  function abrirNovaTarefa(status: StatusTarefa) {
+    setTarefaEditando(null);
+    setStatusNovaTarefa(status);
+    setDialogAberto(true);
+  }
+
+  function abrirEdicao(tarefa: Tarefa) {
+    setTarefaEditando(tarefa);
+    setStatusNovaTarefa(tarefa.status);
+    setDialogAberto(true);
+    setTarefaSelecionada(null);
+  }
+
+  return (
+    <Box>
+      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+        <IconButton size="small" onClick={() => navigate('/projetos')}>
+          <ArrowBackRoundedIcon fontSize="small" />
+        </IconButton>
+        <Typography variant="overline" sx={{ color: 'accentGold.main' }}>
+          Projeto
+        </Typography>
+      </Stack>
+
+      <PageHeader
+        title={projeto?.nome ?? 'Carregando...'}
+        subtitle={projeto?.descricao}
+      />
+
+      {carregando ? (
+        <Stack direction="row" spacing={2.5}>
+          {STATUS_ORDER.map((s) => (
+            <Skeleton key={s} variant="rounded" height={400} sx={{ flex: 1, borderRadius: 4 }} />
+          ))}
+        </Stack>
+      ) : (
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} alignItems="flex-start">
+            {STATUS_ORDER.map((status) => (
+              <Box
+                key={status}
+                sx={{
+                  flex: 1,
+                  width: '100%',
+                  bgcolor: 'rgba(15,28,46,0.03)',
+                  borderRadius: 4,
+                  p: 1.5,
+                }}
+              >
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ px: 1, py: 1 }}
+                >
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        bgcolor: STATUS_COLOR[status],
+                      }}
+                    />
+                    <Typography variant="subtitle2">{STATUS_LABEL[status]}</Typography>
+                    <Chip
+                      label={colunas[status].length}
+                      size="small"
+                      sx={{ height: 20, fontSize: '0.7rem', bgcolor: 'rgba(15,28,46,0.06)' }}
+                    />
+                  </Stack>
+                  <IconButton size="small" onClick={() => abrirNovaTarefa(status)}>
+                    <AddRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+
+                <Droppable droppableId={status}>
+                  {(provided, snapshot) => (
+                    <Stack
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      spacing={1.5}
+                      sx={{
+                        minHeight: 80,
+                        p: 1,
+                        borderRadius: 3,
+                        bgcolor: snapshot.isDraggingOver ? 'rgba(176,141,79,0.08)' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      {colunas[status].map((tarefa, index) => (
+                        <Draggable key={tarefa.id} draggableId={String(tarefa.id)} index={index}>
+                          {(providedDrag) => (
+                            <Box
+                              ref={providedDrag.innerRef}
+                              {...providedDrag.draggableProps}
+                              {...providedDrag.dragHandleProps}
+                            >
+                              <TaskCard
+                                tarefa={tarefa}
+                                responsavel={usuariosPorId.get(tarefa.responsavelId)}
+                                onClick={() => setTarefaSelecionada(tarefa)}
+                              />
+                            </Box>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+
+                      {colunas[status].length === 0 && (
+                        <Typography
+                          variant="body2"
+                          sx={{ textAlign: 'center', color: palette.slateLight, py: 2 }}
+                        >
+                          Nenhuma tarefa
+                        </Typography>
+                      )}
+                    </Stack>
+                  )}
+                </Droppable>
+              </Box>
+            ))}
+          </Stack>
+        </DragDropContext>
+      )}
+
+      <TaskFormDialog
+        open={dialogAberto}
+        onClose={() => setDialogAberto(false)}
+        onSalvo={carregar}
+        projetoId={projetoId}
+        usuarios={usuarios}
+        statusInicial={statusNovaTarefa}
+        tarefaExistente={tarefaEditando}
+      />
+
+      <TaskDetailDrawer
+        tarefa={tarefaSelecionada}
+        responsavel={tarefaSelecionada ? usuariosPorId.get(tarefaSelecionada.responsavelId) : undefined}
+        onClose={() => setTarefaSelecionada(null)}
+        onEditar={() => tarefaSelecionada && abrirEdicao(tarefaSelecionada)}
+        onExcluida={() => {
+          setTarefaSelecionada(null);
+          carregar();
+        }}
+      />
+    </Box>
+  );
+}
