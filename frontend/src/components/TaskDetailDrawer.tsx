@@ -166,6 +166,42 @@ export function TaskDetailDrawer({ tarefa, responsavel, onClose, onEditar, onExc
                 <Typography variant="body2">{responsavel?.nome ?? 'Sem responsável'}</Typography>
               </Stack>
             </Stack>
+
+            {tarefa.tags.length > 0 && (
+              <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                {tarefa.tags.map((tag) => (
+                  <Chip
+                    key={tag.id}
+                    label={tag.nome}
+                    size="small"
+                    sx={{ bgcolor: `${tag.cor}1A`, color: tag.cor, fontWeight: 700, height: 22, fontSize: '0.7rem' }}
+                  />
+                ))}
+              </Stack>
+            )}
+
+            {tarefa.dependencias.length > 0 && (
+              <Stack spacing={0.5} sx={{ pt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: palette.slateLight, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Depende de
+                </Typography>
+                <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+                  {tarefa.dependencias.map((dep) => (
+                    <Chip
+                      key={dep.id}
+                      label={dep.titulo}
+                      size="small"
+                      sx={{
+                        bgcolor: `${STATUS_COLOR[dep.status]}1A`,
+                        color: STATUS_COLOR[dep.status],
+                        height: 22,
+                        fontSize: '0.7rem',
+                      }}
+                    />
+                  ))}
+                </Stack>
+              </Stack>
+            )}
           </Stack>
 
           <Tabs

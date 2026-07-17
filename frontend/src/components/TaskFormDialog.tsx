@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
+  Autocomplete,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -9,9 +11,12 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import type { StatusTarefa, Tarefa, Usuario } from '../api/types';
-import { criarTarefa, atualizarTarefa, trocarResponsavel } from '../api/resources';
+import type { StatusTarefa, Tag, Tarefa, Usuario } from '../api/types';
+import { criarTarefa, atualizarTarefa, trocarResponsavel, listarTags, criarTag } from '../api/resources';
 import { STATUS_LABEL, STATUS_ORDER } from '../theme/status';
+import { palette } from '../theme/theme';
+
+const CORES_TAG = ['#2a78d6', '#008300', '#B08D4F', '#B3441E', '#5B6472'];
 
 interface TaskFormDialogProps {
   open: boolean;
@@ -19,6 +24,7 @@ interface TaskFormDialogProps {
   onSalvo: () => void;
   projetoId: number;
   usuarios: Usuario[];
+  tarefasDoProjeto: Tarefa[];
   statusInicial: StatusTarefa;
   tarefaExistente?: Tarefa | null;
 }
@@ -29,6 +35,7 @@ export function TaskFormDialog({
   onSalvo,
   projetoId,
   usuarios,
+  tarefasDoProjeto,
   statusInicial,
   tarefaExistente,
 }: TaskFormDialogProps) {
@@ -38,7 +45,16 @@ export function TaskFormDialog({
   const [prioridade, setPrioridade] = useState('MEDIA');
   const [prazo, setPrazo] = useState('');
   const [responsavelId, setResponsavelId] = useState<number | ''>('');
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [tagsDisponiveis, setTagsDisponiveis] = useState<Tag[]>([]);
+  const [dependencias, setDependencias] = useState<Tarefa[]>([]);
   const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      listarTags().then(setTagsDisponiveis);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -50,6 +66,12 @@ export function TaskFormDialog({
       setPrioridade(tarefaExistente.prioridade ?? 'MEDIA');
       setPrazo(tarefaExistente.prazo ?? '');
       setResponsavelId(tarefaExistente.responsavelId);
+      setTags(tarefaExistente.tags);
+      setDependencias(
+        tarefasDoProjeto.filter((t) =>
+          tarefaExistente.dependencias.some((d) => d.id === t.id),
+        ),
+      );
     } else {
       setTitulo('');
       setDescricao('');
@@ -57,8 +79,18 @@ export function TaskFormDialog({
       setPrioridade('MEDIA');
       setPrazo('');
       setResponsavelId(usuarios[0]?.id ?? '');
+      setTags([]);
+      setDependencias([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tarefaExistente, statusInicial, usuarios]);
+
+  async function handleNovaTag(nome: string) {
+    const cor = CORES_TAG[tagsDisponiveis.length % CORES_TAG.length];
+    const tag = await criarTag(nome, cor);
+    setTagsDisponiveis((atual) => [...atual, tag]);
+    setTags((atual) => [...atual, tag]);
+  }
 
   async function salvar() {
     if (!titulo.trim() || responsavelId === '') return;
@@ -70,6 +102,8 @@ export function TaskFormDialog({
       status,
       prioridade,
       prazo: prazo || null,
+      tagIds: tags.map((t) => t.id),
+      dependenciaIds: dependencias.map((d) => d.id),
     };
 
     try {
@@ -87,6 +121,8 @@ export function TaskFormDialog({
       setSalvando(false);
     }
   }
+
+  const opcoesDependencia = tarefasDoProjeto.filter((t) => t.id !== tarefaExistente?.id);
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -161,6 +197,68 @@ export function TaskFormDialog({
               ))}
             </TextField>
           </Stack>
+
+          <Autocomplete
+            multiple
+            freeSolo
+            options={tagsDisponiveis}
+            value={tags}
+            getOptionLabel={(opcao) => (typeof opcao === 'string' ? opcao : opcao.nome)}
+            isOptionEqualToValue={(opcao, valor) => opcao.id === valor.id}
+            onChange={(_, novoValor) => {
+              const novaLista: Tag[] = [];
+              novoValor.forEach((item) => {
+                if (typeof item === 'string') {
+                  handleNovaTag(item);
+                } else {
+                  novaLista.push(item);
+                }
+              });
+              setTags(novaLista);
+            }}
+            renderTags={(valor, getTagProps) =>
+              valor.map((tag, index) => (
+                <Chip
+                  {...getTagProps({ index })}
+                  key={tag.id}
+                  label={tag.nome}
+                  size="small"
+                  sx={{ bgcolor: `${tag.cor}1A`, color: tag.cor, fontWeight: 600 }}
+                />
+              ))
+            }
+            renderInput={(params) => (
+              <TextField {...params} label="Tags" placeholder="Digite e pressione Enter para criar" />
+            )}
+          />
+
+          <Autocomplete
+            multiple
+            options={opcoesDependencia}
+            value={dependencias}
+            getOptionLabel={(t) => t.titulo}
+            isOptionEqualToValue={(opcao, valor) => opcao.id === valor.id}
+            onChange={(_, novoValor) => setDependencias(novoValor)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Depende de"
+                placeholder="Tarefas que precisam ser concluídas antes"
+              />
+            )}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                {option.titulo}
+                {option.status !== 'CONCLUIDO' && (
+                  <Chip
+                    label="pendente"
+                    size="small"
+                    sx={{ ml: 1, height: 18, fontSize: '0.65rem', bgcolor: palette.line }}
+                  />
+                )}
+              </li>
+            )}
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>

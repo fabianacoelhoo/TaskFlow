@@ -8,4 +8,6 @@ public class ProjetoResponseDTO {
     private Long id;
     private String nome;
     private String descricao;
+    private long totalTarefas;
+    private long tarefasConcluidas;
 }

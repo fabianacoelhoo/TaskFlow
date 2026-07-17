@@ -1,12 +1,18 @@
-import { Box, Stack, Typography, Tooltip } from '@mui/material';
+import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { NavLink, useLocation } from 'react-router-dom';
 import SpaceDashboardRoundedIcon from '@mui/icons-material/SpaceDashboardRounded';
 import FolderCopyRoundedIcon from '@mui/icons-material/FolderCopyRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import { palette } from '../theme/theme';
+import { Logo } from './Logo';
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', to: '/', icon: SpaceDashboardRoundedIcon, match: (p: string) => p === '/' },
+  {
+    label: 'Dashboard',
+    to: '/dashboard',
+    icon: SpaceDashboardRoundedIcon,
+    match: (p: string) => p === '/dashboard',
+  },
   {
     label: 'Projetos',
     to: '/projetos',
@@ -43,27 +49,9 @@ export function Sidebar() {
         py: 3,
       }}
     >
-      <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ px: 1, mb: 5 }}>
-        <Typography
-          sx={{
-            fontFamily: '"Fraunces", serif',
-            fontWeight: 600,
-            fontSize: '1.5rem',
-            color: palette.ivory,
-          }}
-        >
-          TaskFlow
-        </Typography>
-        <Box
-          sx={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            bgcolor: palette.gold,
-            transform: 'translateY(-6px)',
-          }}
-        />
-      </Stack>
+      <Box sx={{ px: 1, mb: 5 }}>
+        <Logo size={32} light />
+      </Box>
 
       <Stack spacing={0.5} sx={{ flex: 1 }}>
         {NAV_ITEMS.map(({ label, to, icon: Icon, match }) => {

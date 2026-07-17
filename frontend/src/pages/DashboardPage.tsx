@@ -17,6 +17,7 @@ import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
 import { PageHeader } from '../components/PageHeader';
 import { StatCard } from '../components/StatCard';
+import { AiAssistant } from '../components/AiAssistant';
 import { obterDashboard } from '../api/resources';
 import type { Dashboard } from '../api/types';
 import { palette } from '../theme/theme';
@@ -57,6 +58,10 @@ export function DashboardPage() {
         title={primeiroNome ? `Olá, ${primeiroNome}` : 'Dashboard'}
         subtitle="Acompanhe o ritmo dos seus projetos e tarefas em um relance."
       />
+
+      <Box sx={{ mb: 3 }}>
+        <AiAssistant />
+      </Box>
 
       {carregando || !dados ? (
         <Grid container spacing={2.5}>

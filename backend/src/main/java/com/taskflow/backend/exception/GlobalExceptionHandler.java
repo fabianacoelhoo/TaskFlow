@@ -37,4 +37,22 @@ public class GlobalExceptionHandler {
                 .body(Map.of("erro", ex.getMessage()));
     }
 
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ResponseEntity<Map<String, String>> tratarAcessoNegado(
+            AcessoNegadoException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(Map.of("erro", ex.getMessage()));
+    }
+
+    @ExceptionHandler(ValidacaoException.class)
+    public ResponseEntity<Map<String, String>> tratarValidacao(
+            ValidacaoException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("erro", ex.getMessage()));
+    }
+
 }

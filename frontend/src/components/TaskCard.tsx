@@ -1,5 +1,6 @@
-import { Avatar, Box, Chip, Stack, Typography } from '@mui/material';
+import { Avatar, Box, Chip, Stack, Tooltip, Typography } from '@mui/material';
 import EventRoundedIcon from '@mui/icons-material/EventRounded';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import type { Tarefa, Usuario } from '../api/types';
 import { PRIORIDADE_COLOR, PRIORIDADE_LABEL } from '../theme/status';
 import { palette } from '../theme/theme';
@@ -28,6 +29,8 @@ export function TaskCard({ tarefa, responsavel, onClick }: TaskCardProps) {
   const atrasada =
     tarefa.status !== 'CONCLUIDO' && tarefa.prazo != null && new Date(tarefa.prazo) < new Date(new Date().toDateString());
 
+  const dependenciasPendentes = tarefa.dependencias.filter((d) => d.status !== 'CONCLUIDO');
+
   return (
     <Box
       onClick={onClick}
@@ -44,9 +47,35 @@ export function TaskCard({ tarefa, responsavel, onClick }: TaskCardProps) {
         },
       }}
     >
-      <Typography variant="subtitle2" sx={{ color: palette.ink, mb: 1, fontWeight: 700 }}>
-        {tarefa.titulo}
-      </Typography>
+      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+        <Typography variant="subtitle2" sx={{ color: palette.ink, fontWeight: 700 }}>
+          {tarefa.titulo}
+        </Typography>
+        {dependenciasPendentes.length > 0 && (
+          <Tooltip title={`Bloqueada por: ${dependenciasPendentes.map((d) => d.titulo).join(', ')}`}>
+            <LinkRoundedIcon sx={{ fontSize: 16, color: palette.slateLight, flexShrink: 0, mt: 0.3 }} />
+          </Tooltip>
+        )}
+      </Stack>
+
+      {tarefa.tags.length > 0 && (
+        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+          {tarefa.tags.map((tag) => (
+            <Chip
+              key={tag.id}
+              label={tag.nome}
+              size="small"
+              sx={{
+                bgcolor: `${tag.cor}1A`,
+                color: tag.cor,
+                height: 18,
+                fontSize: '0.65rem',
+                fontWeight: 700,
+              }}
+            />
+          ))}
+        </Stack>
+      )}
 
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
         {tarefa.prioridade && (

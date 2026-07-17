@@ -19,13 +19,16 @@ public class ComentarioService {
 
     private final ComentarioRepository comentarioRepository;
     private final TarefaRepository tarefaRepository;
+    private final NotificacaoService notificacaoService;
     private final AutenticacaoService autenticacaoService;
 
     public ComentarioService(ComentarioRepository comentarioRepository,
                               TarefaRepository tarefaRepository,
+                              NotificacaoService notificacaoService,
                               AutenticacaoService autenticacaoService) {
         this.comentarioRepository = comentarioRepository;
         this.tarefaRepository = tarefaRepository;
+        this.notificacaoService = notificacaoService;
         this.autenticacaoService = autenticacaoService;
     }
 
@@ -42,7 +45,15 @@ public class ComentarioService {
         comentario.setTarefa(tarefa);
         comentario.setUsuario(autor);
 
-        return toResponseDTO(comentarioRepository.save(comentario));
+        Comentario salvo = comentarioRepository.save(comentario);
+
+        Usuario responsavel = tarefa.getResponsavel();
+        if (!responsavel.getId().equals(autor.getId())) {
+            notificacaoService.criar(responsavel,
+                    autor.getNome() + " comentou em '" + tarefa.getTitulo() + "'.", tarefa);
+        }
+
+        return toResponseDTO(salvo);
     }
 
     public List<ComentarioResponseDTO> listarPorTarefa(Long tarefaId) {

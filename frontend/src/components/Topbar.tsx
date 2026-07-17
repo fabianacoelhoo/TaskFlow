@@ -3,6 +3,7 @@ import {
   AppBar,
   Avatar,
   Box,
+  Chip,
   Divider,
   ListItemIcon,
   Menu,
@@ -15,6 +16,7 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { palette } from '../theme/theme';
+import { NotificationBell } from './NotificationBell';
 
 export function Topbar() {
   const { usuario, sair } = useAuth();
@@ -29,7 +31,9 @@ export function Topbar() {
 
   return (
     <AppBar position="sticky" color="transparent" sx={{ bgcolor: palette.ivory }}>
-      <Toolbar sx={{ justifyContent: 'flex-end', gap: 1.5, py: 1 }}>
+      <Toolbar sx={{ justifyContent: 'flex-end', gap: 1, py: 1 }}>
+        <NotificationBell />
+
         <Box
           onClick={(event) => setAnchorEl(event.currentTarget)}
           sx={{
@@ -43,9 +47,18 @@ export function Topbar() {
             '&:hover': { bgcolor: 'rgba(15,28,46,0.04)' },
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 600, color: palette.ink }}>
-            {usuario?.nome ?? 'Carregando...'}
-          </Typography>
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: palette.ink, lineHeight: 1.3 }}>
+              {usuario?.nome ?? 'Carregando...'}
+            </Typography>
+            {usuario?.papel === 'ADMIN' && (
+              <Chip
+                label="Admin"
+                size="small"
+                sx={{ height: 16, fontSize: '0.6rem', bgcolor: 'rgba(176,141,79,0.15)', color: palette.gold, fontWeight: 700 }}
+              />
+            )}
+          </Box>
           <Avatar
             sx={{
               width: 36,

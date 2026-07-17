@@ -2,9 +2,14 @@ package com.taskflow.backend.service;
 
 import com.taskflow.backend.dto.projeto.ProjetoRequestDTO;
 import com.taskflow.backend.dto.projeto.ProjetoResponseDTO;
+import com.taskflow.backend.entity.Papel;
 import com.taskflow.backend.entity.Projeto;
+import com.taskflow.backend.entity.StatusTarefa;
+import com.taskflow.backend.exception.AcessoNegadoException;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.repository.ProjetoRepository;
+import com.taskflow.backend.repository.TarefaRepository;
+import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
@@ -12,9 +17,15 @@ import java.util.List;
 public class ProjetoService {
 
     private final ProjetoRepository projetoRepository;
+    private final TarefaRepository tarefaRepository;
+    private final AutenticacaoService autenticacaoService;
 
-    public ProjetoService(ProjetoRepository projetoRepository) {
+    public ProjetoService(ProjetoRepository projetoRepository,
+                           TarefaRepository tarefaRepository,
+                           AutenticacaoService autenticacaoService) {
         this.projetoRepository = projetoRepository;
+        this.tarefaRepository = tarefaRepository;
+        this.autenticacaoService = autenticacaoService;
     }
 
     public ProjetoResponseDTO criarProjeto(ProjetoRequestDTO dto) {
@@ -62,6 +73,10 @@ public class ProjetoService {
 
     public void excluir(Long id) {
 
+        if (autenticacaoService.usuarioAutenticado().getPapel() != Papel.ADMIN) {
+            throw new AcessoNegadoException("Apenas administradores podem excluir projetos.");
+        }
+
         Projeto projeto = buscarPorId(id);
 
         projetoRepository.delete(projeto);
@@ -72,6 +87,8 @@ public class ProjetoService {
         dto.setId(projeto.getId());
         dto.setNome(projeto.getNome());
         dto.setDescricao(projeto.getDescricao());
+        dto.setTotalTarefas(tarefaRepository.countByProjetoId(projeto.getId()));
+        dto.setTarefasConcluidas(tarefaRepository.countByProjetoIdAndStatus(projeto.getId(), StatusTarefa.CONCLUIDO));
         return dto;
     }
 }

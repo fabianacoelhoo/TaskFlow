@@ -16,6 +16,7 @@ public class Projeto {
 
     private String nome;
 
+    @Column(columnDefinition = "TEXT")
     private String descricao;
 
     private LocalDate dataInicio;

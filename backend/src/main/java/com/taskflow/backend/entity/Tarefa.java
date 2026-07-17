@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "tarefas")
@@ -17,6 +19,7 @@ public class Tarefa {
 
     private String titulo;
 
+    @Column(columnDefinition = "TEXT")
     private String descricao;
 
     @Enumerated(EnumType.STRING)
@@ -35,4 +38,20 @@ public class Tarefa {
     @ManyToOne
     @JoinColumn(name = "responsavel_id")
     private Usuario responsavel;
+
+    @ManyToMany
+    @JoinTable(
+            name = "tarefa_tags",
+            joinColumns = @JoinColumn(name = "tarefa_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> tags = new ArrayList<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "tarefa_dependencias",
+            joinColumns = @JoinColumn(name = "tarefa_id"),
+            inverseJoinColumns = @JoinColumn(name = "depende_de_id")
+    )
+    private List<Tarefa> dependencias = new ArrayList<>();
 }

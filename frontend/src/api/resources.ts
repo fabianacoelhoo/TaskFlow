@@ -4,8 +4,11 @@ import type {
   Comentario,
   Dashboard,
   HistoricoItem,
+  Notificacao,
+  Papel,
   Projeto,
   StatusTarefa,
+  Tag,
   Tarefa,
   Usuario,
 } from './types';
@@ -27,6 +30,11 @@ export async function listarUsuarios() {
 
 export async function usuarioAtual() {
   const { data } = await api.get<Usuario>('/usuarios/me');
+  return data;
+}
+
+export async function alterarPapel(usuarioId: number, papel: Papel) {
+  const { data } = await api.put<Usuario>(`/usuarios/${usuarioId}/papel?papel=${papel}`);
   return data;
 }
 
@@ -60,6 +68,8 @@ export interface NovaTarefa {
   status: StatusTarefa;
   prioridade: string;
   prazo: string | null;
+  tagIds: number[];
+  dependenciaIds: number[];
 }
 
 export async function criarTarefa(
@@ -131,5 +141,46 @@ export async function baixarAnexo(anexoId: number, nomeArquivo: string) {
 
 export async function obterDashboard() {
   const { data } = await api.get<Dashboard>('/dashboard');
+  return data;
+}
+
+export async function listarTags() {
+  const { data } = await api.get<Tag[]>('/tags');
+  return data;
+}
+
+export async function criarTag(nome: string, cor: string) {
+  const { data } = await api.post<Tag>('/tags', { nome, cor });
+  return data;
+}
+
+export async function listarNotificacoes() {
+  const { data } = await api.get<Notificacao[]>('/notificacoes');
+  return data;
+}
+
+export async function contarNotificacoesNaoLidas() {
+  const { data } = await api.get<{ quantidade: number }>('/notificacoes/nao-lidas/contagem');
+  return data.quantidade;
+}
+
+export async function marcarNotificacaoComoLida(id: number) {
+  await api.put(`/notificacoes/${id}/lida`);
+}
+
+export async function marcarTodasNotificacoesComoLidas() {
+  await api.put('/notificacoes/lidas');
+}
+
+export async function perguntarIA(pergunta: string) {
+  const { data } = await api.post<{ resposta: string }>('/ai/perguntar', { pergunta });
+  return data.resposta;
+}
+
+export async function gerarTarefasComIA(projetoId: number, descricao: string, responsavelId: number) {
+  const { data } = await api.post<Tarefa[]>(`/ai/projetos/${projetoId}/gerar-tarefas`, {
+    descricao,
+    responsavelId,
+  });
   return data;
 }

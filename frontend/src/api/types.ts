@@ -1,15 +1,32 @@
 export type StatusTarefa = 'A_FAZER' | 'EM_ANDAMENTO' | 'CONCLUIDO';
 
+export type Papel = 'ADMIN' | 'MEMBRO';
+
 export interface Usuario {
   id: number;
   nome: string;
   email: string;
+  papel: Papel | null;
 }
 
 export interface Projeto {
   id: number;
   nome: string;
   descricao: string;
+  totalTarefas: number;
+  tarefasConcluidas: number;
+}
+
+export interface Tag {
+  id: number;
+  nome: string;
+  cor: string;
+}
+
+export interface TarefaResumo {
+  id: number;
+  titulo: string;
+  status: StatusTarefa;
 }
 
 export interface Tarefa {
@@ -21,6 +38,8 @@ export interface Tarefa {
   prazo: string | null;
   projetoId: number;
   responsavelId: number;
+  tags: Tag[];
+  dependencias: TarefaResumo[];
 }
 
 export interface Comentario {
@@ -45,6 +64,14 @@ export interface HistoricoItem {
   tarefaId: number;
   usuarioId: number;
   usuarioNome: string;
+}
+
+export interface Notificacao {
+  id: number;
+  mensagem: string;
+  lida: boolean;
+  criadoEm: string;
+  tarefaId: number | null;
 }
 
 export interface Dashboard {

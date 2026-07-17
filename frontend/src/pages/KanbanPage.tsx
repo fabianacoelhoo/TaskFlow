@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Chip, IconButton, Skeleton, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, IconButton, Skeleton, Snackbar, Stack, Typography } from '@mui/material';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { TaskCard } from '../components/TaskCard';
 import { TaskFormDialog } from '../components/TaskFormDialog';
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer';
+import { GerarTarefasIADialog } from '../components/GerarTarefasIADialog';
 import {
   atualizarTarefa,
   listarProjetos,
@@ -32,6 +34,8 @@ export function KanbanPage() {
   const [statusNovaTarefa, setStatusNovaTarefa] = useState<StatusTarefa>('A_FAZER');
   const [tarefaEditando, setTarefaEditando] = useState<Tarefa | null>(null);
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
+  const [erroArraste, setErroArraste] = useState<string | null>(null);
+  const [dialogIaAberto, setDialogIaAberto] = useState(false);
 
   function carregar() {
     Promise.all([listarTarefasPorProjeto(projetoId), listarUsuarios()]).then(
@@ -88,9 +92,12 @@ export function KanbanPage() {
         status: novoStatus,
         prioridade: tarefa.prioridade ?? 'MEDIA',
         prazo: tarefa.prazo,
+        tagIds: tarefa.tags.map((t) => t.id),
+        dependenciaIds: tarefa.dependencias.map((d) => d.id),
       });
-    } catch {
+    } catch (erro: any) {
       setTarefas(anteriores);
+      setErroArraste(erro?.response?.data?.erro ?? 'Não foi possível mover a tarefa.');
     }
   }
 
@@ -121,6 +128,15 @@ export function KanbanPage() {
       <PageHeader
         title={projeto?.nome ?? 'Carregando...'}
         subtitle={projeto?.descricao}
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AutoAwesomeRoundedIcon />}
+            onClick={() => setDialogIaAberto(true)}
+          >
+            Gerar tarefas com IA
+          </Button>
+        }
       />
 
       {carregando ? (
@@ -226,6 +242,7 @@ export function KanbanPage() {
         onSalvo={carregar}
         projetoId={projetoId}
         usuarios={usuarios}
+        tarefasDoProjeto={tarefas}
         statusInicial={statusNovaTarefa}
         tarefaExistente={tarefaEditando}
       />
@@ -240,6 +257,25 @@ export function KanbanPage() {
           carregar();
         }}
       />
+
+      <GerarTarefasIADialog
+        open={dialogIaAberto}
+        onClose={() => setDialogIaAberto(false)}
+        onGerado={carregar}
+        projetoId={projetoId}
+        usuarios={usuarios}
+      />
+
+      <Snackbar
+        open={Boolean(erroArraste)}
+        autoHideDuration={5000}
+        onClose={() => setErroArraste(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" onClose={() => setErroArraste(null)} sx={{ maxWidth: 480 }}>
+          {erroArraste}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

@@ -7,14 +7,19 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import { useAuth } from '../auth/AuthContext';
 import { login, registrar } from '../api/resources';
 import { palette } from '../theme/theme';
+import { Logo } from '../components/Logo';
 
 export function LoginPage() {
-  const [modo, setModo] = useState<'entrar' | 'criar'>('entrar');
+  const [searchParams] = useSearchParams();
+  const [modo, setModo] = useState<'entrar' | 'criar'>(
+    searchParams.get('modo') === 'criar' ? 'criar' : 'entrar',
+  );
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -35,7 +40,7 @@ export function LoginPage() {
       }
       const { token } = await login(email, senha);
       entrar(token);
-      navigate('/', { replace: true });
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       const mensagem =
         err?.response?.data?.erro ??
@@ -72,16 +77,9 @@ export function LoginPage() {
           }}
         />
 
-        <Typography
-          sx={{
-            fontFamily: '"Fraunces", serif',
-            fontWeight: 600,
-            fontSize: '1.6rem',
-            position: 'relative',
-          }}
-        >
-          TaskFlow
-        </Typography>
+        <Box sx={{ position: 'relative' }}>
+          <Logo size={34} light />
+        </Box>
 
         <Box sx={{ position: 'relative', maxWidth: 460 }}>
           <Typography
@@ -117,12 +115,28 @@ export function LoginPage() {
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 380 }}>
-          <Typography
-            variant="overline"
-            sx={{ color: palette.gold, display: { md: 'none' }, mb: 1 }}
+          <Box sx={{ display: { md: 'none' }, mb: 2 }}>
+            <Logo size={30} />
+          </Box>
+
+          <Box
+            component={RouterLink}
+            to="/"
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              mb: 3,
+              color: palette.slate,
+              textDecoration: 'none',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              '&:hover': { color: palette.ink },
+            }}
           >
-            TaskFlow
-          </Typography>
+            <ArrowBackRoundedIcon sx={{ fontSize: 16 }} />
+            Voltar para a página inicial
+          </Box>
 
           <Typography variant="h4" sx={{ mb: 0.75 }}>
             {modo === 'entrar' ? 'Bem-vinda de volta' : 'Criar sua conta'}

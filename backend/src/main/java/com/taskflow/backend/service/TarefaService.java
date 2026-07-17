@@ -1,18 +1,24 @@
 package com.taskflow.backend.service;
 
+import com.taskflow.backend.dto.tag.TagResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaRequestDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
+import com.taskflow.backend.dto.tarefa.TarefaResumoDTO;
 import com.taskflow.backend.entity.Projeto;
 import com.taskflow.backend.entity.StatusTarefa;
+import com.taskflow.backend.entity.Tag;
 import com.taskflow.backend.entity.Tarefa;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
+import com.taskflow.backend.exception.ValidacaoException;
 import com.taskflow.backend.repository.ProjetoRepository;
+import com.taskflow.backend.repository.TagRepository;
 import com.taskflow.backend.repository.TarefaRepository;
 import com.taskflow.backend.repository.UsuarioRepository;
 import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,18 +28,24 @@ public class TarefaService {
     private final TarefaRepository tarefaRepository;
     private final ProjetoRepository projetoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final TagRepository tagRepository;
     private final HistoricoService historicoService;
+    private final NotificacaoService notificacaoService;
     private final AutenticacaoService autenticacaoService;
 
     public TarefaService(TarefaRepository tarefaRepository,
                          ProjetoRepository projetoRepository,
                          UsuarioRepository usuarioRepository,
+                         TagRepository tagRepository,
                          HistoricoService historicoService,
+                         NotificacaoService notificacaoService,
                          AutenticacaoService autenticacaoService) {
         this.tarefaRepository = tarefaRepository;
         this.projetoRepository = projetoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.tagRepository = tagRepository;
         this.historicoService = historicoService;
+        this.notificacaoService = notificacaoService;
         this.autenticacaoService = autenticacaoService;
     }
 
@@ -53,10 +65,21 @@ public class TarefaService {
         tarefa.setPrazo(dto.getPrazo());
         tarefa.setProjeto(projeto);
         tarefa.setResponsavel(usuario);
+        tarefa.setTags(buscarTags(dto.getTagIds()));
+        tarefa.setDependencias(buscarDependencias(dto.getDependenciaIds()));
+
+        if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
+            validarDependenciasConcluidas(tarefa.getDependencias());
+        }
 
         Tarefa salva = tarefaRepository.save(tarefa);
 
-        historicoService.registrar(salva, autenticacaoService.usuarioAutenticado(), "Tarefa criada");
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        historicoService.registrar(salva, autor, "Tarefa criada");
+
+        if (!usuario.getId().equals(autor.getId())) {
+            notificacaoService.criar(usuario, "Você foi atribuído à tarefa '" + salva.getTitulo() + "'.", salva);
+        }
 
         return toResponseDTO(salva);
     }
@@ -85,6 +108,17 @@ public class TarefaService {
         tarefa.setStatus(dto.getStatus());
         tarefa.setPrioridade(dto.getPrioridade());
         tarefa.setPrazo(dto.getPrazo());
+        tarefa.setTags(buscarTags(dto.getTagIds()));
+
+        List<Tarefa> dependencias = buscarDependencias(dto.getDependenciaIds());
+        if (dependencias.stream().anyMatch(dep -> dep.getId().equals(id))) {
+            throw new ValidacaoException("Uma tarefa não pode depender de si mesma.");
+        }
+        tarefa.setDependencias(dependencias);
+
+        if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
+            validarDependenciasConcluidas(tarefa.getDependencias());
+        }
 
         Tarefa salva = tarefaRepository.save(tarefa);
 
@@ -113,14 +147,45 @@ public class TarefaService {
 
         Tarefa salva = tarefaRepository.save(tarefa);
 
-        historicoService.registrar(salva, autenticacaoService.usuarioAutenticado(),
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        historicoService.registrar(salva, autor,
                 "Responsável alterado de '" + responsavelAnterior.getNome() + "' para '" + novoResponsavel.getNome() + "'");
+
+        if (!novoResponsavel.getId().equals(autor.getId())) {
+            notificacaoService.criar(novoResponsavel, "Você foi atribuído à tarefa '" + salva.getTitulo() + "'.", salva);
+        }
 
         return toResponseDTO(salva);
     }
 
     public void excluir(Long id) {
         tarefaRepository.deleteById(id);
+    }
+
+    private List<Tag> buscarTags(List<Long> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(tagRepository.findByIdIn(tagIds));
+    }
+
+    private List<Tarefa> buscarDependencias(List<Long> dependenciaIds) {
+        if (dependenciaIds == null || dependenciaIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return new ArrayList<>(tarefaRepository.findAllById(dependenciaIds));
+    }
+
+    private void validarDependenciasConcluidas(List<Tarefa> dependencias) {
+        List<String> pendentes = dependencias.stream()
+                .filter(dep -> dep.getStatus() != StatusTarefa.CONCLUIDO)
+                .map(Tarefa::getTitulo)
+                .toList();
+
+        if (!pendentes.isEmpty()) {
+            throw new ValidacaoException(
+                    "Não é possível concluir: existem dependências pendentes (" + String.join(", ", pendentes) + ")");
+        }
     }
 
     private TarefaResponseDTO toResponseDTO(Tarefa tarefa) {
@@ -133,6 +198,24 @@ public class TarefaService {
         dto.setPrazo(tarefa.getPrazo());
         dto.setProjetoId(tarefa.getProjeto().getId());
         dto.setResponsavelId(tarefa.getResponsavel().getId());
+        dto.setTags(tarefa.getTags().stream().map(this::toTagResponseDTO).toList());
+        dto.setDependencias(tarefa.getDependencias().stream().map(this::toResumoDTO).toList());
+        return dto;
+    }
+
+    private TagResponseDTO toTagResponseDTO(Tag tag) {
+        TagResponseDTO dto = new TagResponseDTO();
+        dto.setId(tag.getId());
+        dto.setNome(tag.getNome());
+        dto.setCor(tag.getCor());
+        return dto;
+    }
+
+    private TarefaResumoDTO toResumoDTO(Tarefa tarefa) {
+        TarefaResumoDTO dto = new TarefaResumoDTO();
+        dto.setId(tarefa.getId());
+        dto.setTitulo(tarefa.getTitulo());
+        dto.setStatus(tarefa.getStatus());
         return dto;
     }
 }

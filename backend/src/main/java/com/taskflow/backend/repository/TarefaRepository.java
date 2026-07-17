@@ -17,4 +17,8 @@ public interface TarefaRepository extends JpaRepository<Tarefa, Long> {
 
     long countByPrazoBeforeAndStatusNot(LocalDate data, StatusTarefa status);
 
+    long countByProjetoId(Long projetoId);
+
+    long countByProjetoIdAndStatus(Long projetoId, StatusTarefa status);
+
 }
