@@ -48,6 +48,7 @@ export interface Tarefa {
   responsavelId: number;
   tags: Tag[];
   dependencias: TarefaResumo[];
+  historiaUsuarioId: number | null;
 }
 
 export interface Comentario {
@@ -89,4 +90,64 @@ export interface Dashboard {
   tarefasEmAndamento: number;
   tarefasConcluidas: number;
   tarefasAtrasadas: number;
+}
+
+export interface Epico {
+  id: number;
+  titulo: string;
+  descricao: string;
+  projetoId: number;
+  criadoEm: string;
+}
+
+export type StatusHistoria = 'PENDENTE' | 'EM_ANDAMENTO' | 'CONCLUIDA';
+
+export interface HistoriaUsuario {
+  id: number;
+  titulo: string;
+  descricao: string;
+  criteriosAceitacao: string | null;
+  pontos: number | null;
+  prioridade: string | null;
+  status: StatusHistoria;
+  projetoId: number;
+  epicoId: number | null;
+  sprintId: number | null;
+}
+
+export type StatusSprint = 'PLANEJADA' | 'ATIVA' | 'CONCLUIDA';
+
+export interface Sprint {
+  id: number;
+  nome: string;
+  objetivo: string | null;
+  dataInicio: string;
+  dataFim: string;
+  status: StatusSprint;
+  projetoId: number;
+  totalPontos: number;
+  totalHistorias: number;
+}
+
+export interface PontoBurndown {
+  data: string;
+  pontos: number;
+}
+
+export interface Burndown {
+  totalPontos: number;
+  linhaIdeal: PontoBurndown[];
+  real: PontoBurndown[];
+}
+
+export interface VelocidadeItem {
+  sprintId: number;
+  sprintNome: string;
+  pontosConcluidos: number;
+}
+
+export interface PlanoBacklogGerado {
+  epico: Epico;
+  historias: HistoriaUsuario[];
+  riscos: string[];
 }

@@ -16,5 +16,6 @@ public class TarefaRequestDTO {
     private LocalDate prazo;
     private List<Long> tagIds;
     private List<Long> dependenciaIds;
+    private Long historiaUsuarioId;
 
 }

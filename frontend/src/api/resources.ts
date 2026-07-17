@@ -1,17 +1,24 @@
 import { api } from './client';
 import type {
   Anexo,
+  Burndown,
   Comentario,
   Dashboard,
   Empresa,
+  Epico,
+  HistoriaUsuario,
   HistoricoItem,
   Notificacao,
   Papel,
+  PlanoBacklogGerado,
   Projeto,
+  Sprint,
+  StatusHistoria,
   StatusTarefa,
   Tag,
   Tarefa,
   Usuario,
+  VelocidadeItem,
 } from './types';
 
 export async function login(email: string, senha: string) {
@@ -101,6 +108,7 @@ export interface NovaTarefa {
   prazo: string | null;
   tagIds: number[];
   dependenciaIds: number[];
+  historiaUsuarioId: number | null;
 }
 
 export async function criarTarefa(
@@ -225,6 +233,109 @@ export async function sugerirPrazoComIA(titulo: string, prioridade: string, resp
   const { data } = await api.post<PrazoSugerido>('/ai/sugerir-prazo', {
     titulo,
     prioridade,
+    responsavelId,
+  });
+  return data;
+}
+
+export async function listarEpicos(projetoId: number) {
+  const { data } = await api.get<Epico[]>(`/projetos/${projetoId}/epicos`);
+  return data;
+}
+
+export async function criarEpico(projetoId: number, titulo: string, descricao: string) {
+  const { data } = await api.post<Epico>(`/projetos/${projetoId}/epicos`, { titulo, descricao });
+  return data;
+}
+
+export async function atualizarEpico(id: number, titulo: string, descricao: string) {
+  const { data } = await api.put<Epico>(`/epicos/${id}`, { titulo, descricao });
+  return data;
+}
+
+export async function excluirEpico(id: number) {
+  await api.delete(`/epicos/${id}`);
+}
+
+export interface NovaHistoria {
+  titulo: string;
+  descricao: string;
+  criteriosAceitacao: string | null;
+  pontos: number | null;
+  prioridade: string;
+  status?: StatusHistoria;
+  epicoId: number | null;
+  sprintId: number | null;
+}
+
+export async function listarHistorias(projetoId: number) {
+  const { data } = await api.get<HistoriaUsuario[]>(`/projetos/${projetoId}/historias`);
+  return data;
+}
+
+export async function criarHistoria(projetoId: number, historia: NovaHistoria) {
+  const { data } = await api.post<HistoriaUsuario>(`/projetos/${projetoId}/historias`, historia);
+  return data;
+}
+
+export async function atualizarHistoria(id: number, historia: NovaHistoria) {
+  const { data } = await api.put<HistoriaUsuario>(`/historias/${id}`, historia);
+  return data;
+}
+
+export async function excluirHistoria(id: number) {
+  await api.delete(`/historias/${id}`);
+}
+
+export interface NovaSprint {
+  nome: string;
+  objetivo: string | null;
+  dataInicio: string;
+  dataFim: string;
+}
+
+export async function listarSprints(projetoId: number) {
+  const { data } = await api.get<Sprint[]>(`/projetos/${projetoId}/sprints`);
+  return data;
+}
+
+export async function criarSprint(projetoId: number, sprint: NovaSprint) {
+  const { data } = await api.post<Sprint>(`/projetos/${projetoId}/sprints`, sprint);
+  return data;
+}
+
+export async function atualizarSprint(id: number, sprint: NovaSprint) {
+  const { data } = await api.put<Sprint>(`/sprints/${id}`, sprint);
+  return data;
+}
+
+export async function excluirSprint(id: number) {
+  await api.delete(`/sprints/${id}`);
+}
+
+export async function iniciarSprint(id: number) {
+  const { data } = await api.put<Sprint>(`/sprints/${id}/iniciar`);
+  return data;
+}
+
+export async function concluirSprint(id: number) {
+  const { data } = await api.put<Sprint>(`/sprints/${id}/concluir`);
+  return data;
+}
+
+export async function obterBurndown(sprintId: number) {
+  const { data } = await api.get<Burndown>(`/sprints/${sprintId}/burndown`);
+  return data;
+}
+
+export async function obterVelocidade(projetoId: number) {
+  const { data } = await api.get<VelocidadeItem[]>(`/projetos/${projetoId}/velocidade`);
+  return data;
+}
+
+export async function gerarPlanoBacklogComIA(projetoId: number, descricao: string, responsavelId: number) {
+  const { data } = await api.post<PlanoBacklogGerado>(`/ai/projetos/${projetoId}/gerar-backlog`, {
+    descricao,
     responsavelId,
   });
   return data;

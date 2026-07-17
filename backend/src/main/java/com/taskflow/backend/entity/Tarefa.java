@@ -39,6 +39,10 @@ public class Tarefa {
     @JoinColumn(name = "responsavel_id")
     private Usuario responsavel;
 
+    @ManyToOne
+    @JoinColumn(name = "historia_usuario_id")
+    private HistoriaUsuario historiaUsuario;
+
     @ManyToMany
     @JoinTable(
             name = "tarefa_tags",

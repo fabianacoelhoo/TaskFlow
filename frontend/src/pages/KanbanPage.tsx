@@ -22,6 +22,7 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ViewKanbanRoundedIcon from '@mui/icons-material/ViewKanbanRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
+import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { TaskCard } from '../components/TaskCard';
@@ -32,12 +33,13 @@ import { CalendarView } from '../components/calendar/CalendarView';
 import {
   adicionarMembroProjeto,
   atualizarTarefa,
+  listarHistorias,
   listarProjetos,
   listarTarefasPorProjeto,
   listarUsuarios,
   removerMembroProjeto,
 } from '../api/resources';
-import type { Projeto, StatusTarefa, Tarefa, Usuario } from '../api/types';
+import type { HistoriaUsuario, Projeto, StatusTarefa, Tarefa, Usuario } from '../api/types';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_ORDER } from '../theme/status';
 import { palette } from '../theme/theme';
 import { useAuth } from '../auth/AuthContext';
@@ -51,6 +53,7 @@ export function KanbanPage() {
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [historias, setHistorias] = useState<HistoriaUsuario[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   const [dialogAberto, setDialogAberto] = useState(false);
@@ -62,10 +65,11 @@ export function KanbanPage() {
   const [visualizacao, setVisualizacao] = useState<'quadro' | 'calendario'>('quadro');
 
   function carregar() {
-    Promise.all([listarTarefasPorProjeto(projetoId), listarUsuarios()]).then(
-      ([tarefasCarregadas, usuariosCarregados]) => {
+    Promise.all([listarTarefasPorProjeto(projetoId), listarUsuarios(), listarHistorias(projetoId)]).then(
+      ([tarefasCarregadas, usuariosCarregados, historiasCarregadas]) => {
         setTarefas(tarefasCarregadas);
         setUsuarios(usuariosCarregados);
+        setHistorias(historiasCarregadas);
         setCarregando(false);
       },
     );
@@ -136,6 +140,7 @@ export function KanbanPage() {
         prazo: tarefa.prazo,
         tagIds: tarefa.tags.map((t) => t.id),
         dependenciaIds: tarefa.dependencias.map((d) => d.id),
+        historiaUsuarioId: tarefa.historiaUsuarioId,
       });
     } catch (erro: any) {
       setTarefas(anteriores);
@@ -171,13 +176,22 @@ export function KanbanPage() {
         title={projeto?.nome ?? 'Carregando...'}
         subtitle={projeto?.descricao}
         action={
-          <Button
-            variant="contained"
-            startIcon={<AutoAwesomeRoundedIcon />}
-            onClick={() => setDialogIaAberto(true)}
-          >
-            Gerar tarefas com IA
-          </Button>
+          <Stack direction="row" spacing={1.5}>
+            <Button
+              variant="outlined"
+              startIcon={<AssignmentTurnedInRoundedIcon />}
+              onClick={() => navigate(`/projetos/${projetoId}/backlog`)}
+            >
+              Backlog & Sprints
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AutoAwesomeRoundedIcon />}
+              onClick={() => setDialogIaAberto(true)}
+            >
+              Gerar tarefas com IA
+            </Button>
+          </Stack>
         }
       />
 
@@ -356,6 +370,7 @@ export function KanbanPage() {
         projetoId={projetoId}
         usuarios={usuarios}
         tarefasDoProjeto={tarefas}
+        historias={historias}
         statusInicial={statusNovaTarefa}
         tarefaExistente={tarefaEditando}
       />

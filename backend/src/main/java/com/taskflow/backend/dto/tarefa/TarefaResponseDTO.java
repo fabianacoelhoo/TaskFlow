@@ -20,5 +20,6 @@ public class TarefaResponseDTO {
     private Long responsavelId;
     private List<TagResponseDTO> tags;
     private List<TarefaResumoDTO> dependencias;
+    private Long historiaUsuarioId;
 
 }

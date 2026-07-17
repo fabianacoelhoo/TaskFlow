@@ -5,11 +5,18 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
+import com.taskflow.backend.dto.ai.GerarPlanoBacklogRequestDTO;
 import com.taskflow.backend.dto.ai.GerarTarefasRequestDTO;
+import com.taskflow.backend.dto.ai.PlanoBacklogGerado;
+import com.taskflow.backend.dto.ai.PlanoBacklogResponseDTO;
 import com.taskflow.backend.dto.ai.PlanoGerado;
 import com.taskflow.backend.dto.ai.PrazoGerado;
 import com.taskflow.backend.dto.ai.PrazoSugeridoDTO;
 import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
+import com.taskflow.backend.dto.epico.EpicoRequestDTO;
+import com.taskflow.backend.dto.epico.EpicoResponseDTO;
+import com.taskflow.backend.dto.historiausuario.HistoriaUsuarioRequestDTO;
+import com.taskflow.backend.dto.historiausuario.HistoriaUsuarioResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaRequestDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
 import com.taskflow.backend.entity.Projeto;
@@ -23,6 +30,8 @@ import com.taskflow.backend.repository.UsuarioRepository;
 import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
 
 import java.io.IOException;
 import java.net.URI;
@@ -44,6 +53,8 @@ public class AiService {
     private final ProjetoService projetoService;
     private final TarefaRepository tarefaRepository;
     private final TarefaService tarefaService;
+    private final EpicoService epicoService;
+    private final HistoriaUsuarioService historiaUsuarioService;
     private final UsuarioRepository usuarioRepository;
     private final AutenticacaoService autenticacaoService;
 
@@ -56,6 +67,8 @@ public class AiService {
                       ProjetoService projetoService,
                       TarefaRepository tarefaRepository,
                       TarefaService tarefaService,
+                      EpicoService epicoService,
+                      HistoriaUsuarioService historiaUsuarioService,
                       UsuarioRepository usuarioRepository,
                       AutenticacaoService autenticacaoService,
                       @Value("${gemini.api-key}") String apiKey,
@@ -66,6 +79,8 @@ public class AiService {
         this.projetoService = projetoService;
         this.tarefaRepository = tarefaRepository;
         this.tarefaService = tarefaService;
+        this.epicoService = epicoService;
+        this.historiaUsuarioService = historiaUsuarioService;
         this.usuarioRepository = usuarioRepository;
         this.autenticacaoService = autenticacaoService;
         this.apiKey = apiKey;
@@ -123,6 +138,77 @@ public class AiService {
         return plano.tarefas().stream()
                 .map(tarefaGerada -> criarTarefaGerada(projetoId, dto.getResponsavelId(), tarefaGerada))
                 .toList();
+    }
+
+    public PlanoBacklogResponseDTO gerarPlanoBacklog(Long projetoId, GerarPlanoBacklogRequestDTO dto) {
+        garantirChaveConfigurada();
+
+        Projeto projeto = projetoService.buscarPorId(projetoId);
+
+        String sistema = """
+                Você é um gerente de projetos de software sênior especialista em Scrum. A partir da \
+                ideia descrita pelo usuário, planeje um pedaço de backlog pronto para uso: um épico, \
+                de 2 a 6 histórias de usuário (no formato "Como um <papel>, quero <funcionalidade>, \
+                para que <motivo>", com critérios de aceitação, prioridade BAIXA/MEDIA/ALTA e uma \
+                estimativa em pontos de história de 1, 2, 3, 5, 8 ou 13), cada uma com 2 a 5 tarefas \
+                técnicas pequenas e acionáveis, e uma lista de riscos ou pontos de atenção do plano.""";
+        String entrada = "Projeto: " + projeto.getNome() + "\n\nIdeia: " + dto.getDescricao();
+
+        JsonNode resposta = enviar(sistema, entrada, construirEsquemaPlanoBacklog());
+        String textoJson = extrairTexto(resposta);
+
+        PlanoBacklogGerado plano;
+        try {
+            plano = objectMapper.readValue(textoJson, PlanoBacklogGerado.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        if (plano.historias() == null || plano.historias().isEmpty()) {
+            throw new ValidacaoException("A IA não retornou nenhuma história de usuário.");
+        }
+
+        EpicoRequestDTO epicoDto = new EpicoRequestDTO();
+        epicoDto.setTitulo(plano.epico() != null ? plano.epico().titulo() : dto.getDescricao());
+        epicoDto.setDescricao(plano.epico() != null ? plano.epico().descricao() : null);
+        EpicoResponseDTO epicoCriado = epicoService.criar(projetoId, epicoDto);
+
+        List<HistoriaUsuarioResponseDTO> historiasCriadas = new ArrayList<>();
+        for (PlanoBacklogGerado.HistoriaGerada historiaGerada : plano.historias()) {
+            HistoriaUsuarioRequestDTO historiaDto = new HistoriaUsuarioRequestDTO();
+            historiaDto.setTitulo(historiaGerada.titulo());
+            historiaDto.setDescricao(historiaGerada.descricao());
+            historiaDto.setCriteriosAceitacao(historiaGerada.criteriosAceitacao());
+            historiaDto.setPrioridade(historiaGerada.prioridade());
+            historiaDto.setPontos(historiaGerada.pontos());
+            historiaDto.setEpicoId(epicoCriado.getId());
+            historiaDto.setSprintId(null);
+
+            HistoriaUsuarioResponseDTO historiaCriada = historiaUsuarioService.criar(projetoId, historiaDto);
+            historiasCriadas.add(historiaCriada);
+
+            if (historiaGerada.tarefas() != null) {
+                for (String tituloTarefa : historiaGerada.tarefas()) {
+                    criarTarefaDaHistoria(projetoId, dto.getResponsavelId(), tituloTarefa, historiaGerada.prioridade(), historiaCriada.getId());
+                }
+            }
+        }
+
+        return new PlanoBacklogResponseDTO(epicoCriado, historiasCriadas, plano.riscos());
+    }
+
+    private void criarTarefaDaHistoria(Long projetoId, Long responsavelId, String titulo, String prioridade, Long historiaUsuarioId) {
+        TarefaRequestDTO dto = new TarefaRequestDTO();
+        dto.setTitulo(titulo);
+        dto.setDescricao("");
+        dto.setStatus(StatusTarefa.A_FAZER);
+        dto.setPrioridade(prioridade);
+        dto.setPrazo(null);
+        dto.setTagIds(List.of());
+        dto.setDependenciaIds(List.of());
+        dto.setHistoriaUsuarioId(historiaUsuarioId);
+
+        tarefaService.criar(dto, projetoId, responsavelId);
     }
 
     public PrazoSugeridoDTO sugerirPrazo(SugerirPrazoRequestDTO dto) {
@@ -300,6 +386,65 @@ public class AiService {
         responseFormat.put("mime_type", "application/json");
         responseFormat.set("schema", esquema);
         return responseFormat;
+    }
+
+    private ObjectNode construirEsquemaPlanoBacklog() {
+        ObjectNode propriedadesEpico = objectMapper.createObjectNode();
+        propriedadesEpico.set("titulo", campoTexto("Título curto do épico"));
+        propriedadesEpico.set("descricao", campoTexto("Descrição do épico"));
+        ObjectNode itemEpico = objectMapper.createObjectNode();
+        itemEpico.put("type", "object");
+        itemEpico.set("properties", propriedadesEpico);
+        itemEpico.set("required", objectMapper.createArrayNode().add("titulo").add("descricao"));
+
+        ObjectNode arrayTarefas = objectMapper.createObjectNode();
+        arrayTarefas.put("type", "array");
+        arrayTarefas.set("items", campoTexto("Título curto e objetivo da tarefa técnica"));
+
+        ObjectNode propriedadesHistoria = objectMapper.createObjectNode();
+        propriedadesHistoria.set("titulo", campoTexto("Título curto da história de usuário"));
+        propriedadesHistoria.set("descricao", campoTexto("Como um <papel>, quero <funcionalidade>, para que <motivo>"));
+        propriedadesHistoria.set("criteriosAceitacao", campoTexto("Critérios de aceitação da história"));
+        propriedadesHistoria.set("prioridade", campoTexto("Prioridade da história: BAIXA, MEDIA ou ALTA"));
+        propriedadesHistoria.set("pontos", campoNumero("Estimativa em pontos de história: 1, 2, 3, 5, 8 ou 13"));
+        propriedadesHistoria.set("tarefas", arrayTarefas);
+
+        ObjectNode itemHistoria = objectMapper.createObjectNode();
+        itemHistoria.put("type", "object");
+        itemHistoria.set("properties", propriedadesHistoria);
+        itemHistoria.set("required", objectMapper.createArrayNode()
+                .add("titulo").add("descricao").add("criteriosAceitacao").add("prioridade").add("pontos").add("tarefas"));
+
+        ObjectNode arrayHistorias = objectMapper.createObjectNode();
+        arrayHistorias.put("type", "array");
+        arrayHistorias.set("items", itemHistoria);
+
+        ObjectNode arrayRiscos = objectMapper.createObjectNode();
+        arrayRiscos.put("type", "array");
+        arrayRiscos.set("items", campoTexto("Um risco ou ponto de atenção do plano, em português"));
+
+        ObjectNode propriedadesEsquema = objectMapper.createObjectNode();
+        propriedadesEsquema.set("epico", itemEpico);
+        propriedadesEsquema.set("historias", arrayHistorias);
+        propriedadesEsquema.set("riscos", arrayRiscos);
+
+        ObjectNode esquema = objectMapper.createObjectNode();
+        esquema.put("type", "object");
+        esquema.set("properties", propriedadesEsquema);
+        esquema.set("required", objectMapper.createArrayNode().add("epico").add("historias").add("riscos"));
+
+        ObjectNode responseFormat = objectMapper.createObjectNode();
+        responseFormat.put("type", "text");
+        responseFormat.put("mime_type", "application/json");
+        responseFormat.set("schema", esquema);
+        return responseFormat;
+    }
+
+    private ObjectNode campoNumero(String descricao) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("type", "integer");
+        node.put("description", descricao);
+        return node;
     }
 
     private ObjectNode campoTexto(String descricao) {

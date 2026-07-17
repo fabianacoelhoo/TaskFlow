@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
-import type { StatusTarefa, Tag, Tarefa, Usuario } from '../api/types';
+import type { HistoriaUsuario, StatusTarefa, Tag, Tarefa, Usuario } from '../api/types';
 import {
   criarTarefa,
   atualizarTarefa,
@@ -36,6 +36,7 @@ interface TaskFormDialogProps {
   projetoId: number;
   usuarios: Usuario[];
   tarefasDoProjeto: Tarefa[];
+  historias: HistoriaUsuario[];
   statusInicial: StatusTarefa;
   tarefaExistente?: Tarefa | null;
 }
@@ -47,6 +48,7 @@ export function TaskFormDialog({
   projetoId,
   usuarios,
   tarefasDoProjeto,
+  historias,
   statusInicial,
   tarefaExistente,
 }: TaskFormDialogProps) {
@@ -56,6 +58,7 @@ export function TaskFormDialog({
   const [prioridade, setPrioridade] = useState('MEDIA');
   const [prazo, setPrazo] = useState('');
   const [responsavelId, setResponsavelId] = useState<number | ''>('');
+  const [historiaUsuarioId, setHistoriaUsuarioId] = useState<number | ''>('');
   const [tags, setTags] = useState<Tag[]>([]);
   const [tagsDisponiveis, setTagsDisponiveis] = useState<Tag[]>([]);
   const [dependencias, setDependencias] = useState<Tarefa[]>([]);
@@ -79,6 +82,7 @@ export function TaskFormDialog({
       setPrioridade(tarefaExistente.prioridade ?? 'MEDIA');
       setPrazo(tarefaExistente.prazo ?? '');
       setResponsavelId(tarefaExistente.responsavelId);
+      setHistoriaUsuarioId(tarefaExistente.historiaUsuarioId ?? '');
       setTags(tarefaExistente.tags);
       setDependencias(
         tarefasDoProjeto.filter((t) =>
@@ -92,6 +96,7 @@ export function TaskFormDialog({
       setPrioridade('MEDIA');
       setPrazo('');
       setResponsavelId(usuarios[0]?.id ?? '');
+      setHistoriaUsuarioId('');
       setTags([]);
       setDependencias([]);
     }
@@ -133,6 +138,7 @@ export function TaskFormDialog({
       prazo: prazo || null,
       tagIds: tags.map((t) => t.id),
       dependenciaIds: dependencias.map((d) => d.id),
+      historiaUsuarioId: historiaUsuarioId === '' ? null : historiaUsuarioId,
     };
 
     try {
@@ -246,6 +252,21 @@ export function TaskFormDialog({
               ))}
             </TextField>
           </Stack>
+
+          <TextField
+            select
+            label="História vinculada"
+            value={historiaUsuarioId}
+            onChange={(e) => setHistoriaUsuarioId(e.target.value === '' ? '' : Number(e.target.value))}
+            fullWidth
+          >
+            <MenuItem value="">Nenhuma</MenuItem>
+            {historias.map((h) => (
+              <MenuItem key={h.id} value={h.id}>
+                {h.titulo}
+              </MenuItem>
+            ))}
+          </TextField>
 
           {(sugerindoPrazo || justificativaPrazo) && (
             <Typography

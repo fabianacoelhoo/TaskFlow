@@ -9,6 +9,8 @@ import { KanbanPage } from './pages/KanbanPage';
 import { CalendarioPage } from './pages/CalendarioPage';
 import { PerfilPage } from './pages/PerfilPage';
 import { EmpresaPage } from './pages/EmpresaPage';
+import { BacklogPage } from './pages/BacklogPage';
+import { SprintPage } from './pages/SprintPage';
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/projetos" element={<ProjetosPage />} />
         <Route path="/projetos/:id" element={<KanbanPage />} />
+        <Route path="/projetos/:id/backlog" element={<BacklogPage />} />
+        <Route path="/projetos/:id/sprints/:sprintId" element={<SprintPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
         <Route path="/perfil" element={<PerfilPage />} />
         <Route path="/empresa" element={<EmpresaPage />} />

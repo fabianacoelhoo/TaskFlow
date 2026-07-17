@@ -1,7 +1,9 @@
 package com.taskflow.backend.controller;
 
+import com.taskflow.backend.dto.ai.GerarPlanoBacklogRequestDTO;
 import com.taskflow.backend.dto.ai.GerarTarefasRequestDTO;
 import com.taskflow.backend.dto.ai.PerguntaRequestDTO;
+import com.taskflow.backend.dto.ai.PlanoBacklogResponseDTO;
 import com.taskflow.backend.dto.ai.PrazoSugeridoDTO;
 import com.taskflow.backend.dto.ai.RespostaIaDTO;
 import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
@@ -36,5 +38,12 @@ public class AiController {
     @PostMapping("/sugerir-prazo")
     public PrazoSugeridoDTO sugerirPrazo(@RequestBody SugerirPrazoRequestDTO dto) {
         return aiService.sugerirPrazo(dto);
+    }
+
+    @PostMapping("/projetos/{projetoId}/gerar-backlog")
+    public PlanoBacklogResponseDTO gerarPlanoBacklog(
+            @PathVariable Long projetoId,
+            @RequestBody GerarPlanoBacklogRequestDTO dto) {
+        return aiService.gerarPlanoBacklog(projetoId, dto);
     }
 }

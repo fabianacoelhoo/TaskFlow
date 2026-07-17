@@ -4,6 +4,7 @@ import com.taskflow.backend.dto.tag.TagResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaRequestDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResumoDTO;
+import com.taskflow.backend.entity.HistoriaUsuario;
 import com.taskflow.backend.entity.Projeto;
 import com.taskflow.backend.entity.StatusTarefa;
 import com.taskflow.backend.entity.Tag;
@@ -11,6 +12,7 @@ import com.taskflow.backend.entity.Tarefa;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.exception.ValidacaoException;
+import com.taskflow.backend.repository.HistoriaUsuarioRepository;
 import com.taskflow.backend.repository.TagRepository;
 import com.taskflow.backend.repository.TarefaRepository;
 import com.taskflow.backend.repository.UsuarioRepository;
@@ -29,6 +31,7 @@ public class TarefaService {
     private final ProjetoService projetoService;
     private final UsuarioRepository usuarioRepository;
     private final TagRepository tagRepository;
+    private final HistoriaUsuarioRepository historiaUsuarioRepository;
     private final HistoricoService historicoService;
     private final NotificacaoService notificacaoService;
     private final AutenticacaoService autenticacaoService;
@@ -37,6 +40,7 @@ public class TarefaService {
                          ProjetoService projetoService,
                          UsuarioRepository usuarioRepository,
                          TagRepository tagRepository,
+                         HistoriaUsuarioRepository historiaUsuarioRepository,
                          HistoricoService historicoService,
                          NotificacaoService notificacaoService,
                          AutenticacaoService autenticacaoService) {
@@ -44,6 +48,7 @@ public class TarefaService {
         this.projetoService = projetoService;
         this.usuarioRepository = usuarioRepository;
         this.tagRepository = tagRepository;
+        this.historiaUsuarioRepository = historiaUsuarioRepository;
         this.historicoService = historicoService;
         this.notificacaoService = notificacaoService;
         this.autenticacaoService = autenticacaoService;
@@ -70,6 +75,7 @@ public class TarefaService {
         tarefa.setResponsavel(usuario);
         tarefa.setTags(buscarTags(dto.getTagIds(), projeto.getEmpresa().getId()));
         tarefa.setDependencias(buscarDependencias(dto.getDependenciaIds(), projeto.getEmpresa().getId()));
+        tarefa.setHistoriaUsuario(buscarHistoria(dto.getHistoriaUsuarioId(), projeto.getId()));
 
         if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
             validarDependenciasConcluidas(tarefa.getDependencias());
@@ -140,6 +146,7 @@ public class TarefaService {
             throw new ValidacaoException("Uma tarefa não pode depender de si mesma.");
         }
         tarefa.setDependencias(dependencias);
+        tarefa.setHistoriaUsuario(buscarHistoria(dto.getHistoriaUsuarioId(), tarefa.getProjeto().getId()));
 
         if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
             validarDependenciasConcluidas(tarefa.getDependencias());
@@ -207,6 +214,18 @@ public class TarefaService {
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
+    private HistoriaUsuario buscarHistoria(Long historiaUsuarioId, Long projetoId) {
+        if (historiaUsuarioId == null) {
+            return null;
+        }
+        HistoriaUsuario historia = historiaUsuarioRepository.findById(historiaUsuarioId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("História não encontrada"));
+        if (!historia.getProjeto().getId().equals(projetoId)) {
+            throw new RecursoNaoEncontradoException("História não encontrada");
+        }
+        return historia;
+    }
+
     private List<Tarefa> buscarDependencias(List<Long> dependenciaIds, Long empresaId) {
         if (dependenciaIds == null || dependenciaIds.isEmpty()) {
             return new ArrayList<>();
@@ -240,6 +259,7 @@ public class TarefaService {
         dto.setResponsavelId(tarefa.getResponsavel().getId());
         dto.setTags(tarefa.getTags().stream().map(this::toTagResponseDTO).toList());
         dto.setDependencias(tarefa.getDependencias().stream().map(this::toResumoDTO).toList());
+        dto.setHistoriaUsuarioId(tarefa.getHistoriaUsuario() != null ? tarefa.getHistoriaUsuario().getId() : null);
         return dto;
     }
 
