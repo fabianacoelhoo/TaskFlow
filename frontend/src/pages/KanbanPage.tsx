@@ -23,15 +23,21 @@ import ViewKanbanRoundedIcon from '@mui/icons-material/ViewKanbanRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
+import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
+import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import GitHubIcon from '@mui/icons-material/GitHub';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { TaskCard } from '../components/TaskCard';
 import { TaskFormDialog } from '../components/TaskFormDialog';
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer';
 import { GerarTarefasIADialog } from '../components/GerarTarefasIADialog';
+import { IntegracaoGithubDialog } from '../components/IntegracaoGithubDialog';
 import { CalendarView } from '../components/calendar/CalendarView';
 import {
   adicionarMembroProjeto,
+  analisarRiscosComIA,
   atualizarTarefa,
   listarHistorias,
   listarProjetos,
@@ -63,6 +69,9 @@ export function KanbanPage() {
   const [erroArraste, setErroArraste] = useState<string | null>(null);
   const [dialogIaAberto, setDialogIaAberto] = useState(false);
   const [visualizacao, setVisualizacao] = useState<'quadro' | 'calendario'>('quadro');
+  const [analisandoRiscos, setAnalisandoRiscos] = useState(false);
+  const [mensagemRiscos, setMensagemRiscos] = useState<string | null>(null);
+  const [dialogGithubAberto, setDialogGithubAberto] = useState(false);
 
   function carregar() {
     Promise.all([listarTarefasPorProjeto(projetoId), listarUsuarios(), listarHistorias(projetoId)]).then(
@@ -105,6 +114,22 @@ export function KanbanPage() {
   async function handleRemoverMembro(usuarioId: number) {
     const atualizado = await removerMembroProjeto(projetoId, usuarioId);
     setProjeto(atualizado);
+  }
+
+  async function handleAnalisarRiscos() {
+    setAnalisandoRiscos(true);
+    try {
+      const resultado = await analisarRiscosComIA(projetoId);
+      setMensagemRiscos(
+        resultado.alertasGerados > 0
+          ? `${resultado.alertasGerados} alerta(s) de risco gerado(s). Veja no sino de notificações.`
+          : 'Nenhum risco identificado no momento.',
+      );
+    } catch (err: any) {
+      setMensagemRiscos(err?.response?.data?.erro ?? 'Não foi possível analisar riscos agora.');
+    } finally {
+      setAnalisandoRiscos(false);
+    }
   }
 
   const colunas = useMemo(() => {
@@ -176,13 +201,38 @@ export function KanbanPage() {
         title={projeto?.nome ?? 'Carregando...'}
         subtitle={projeto?.descricao}
         action={
-          <Stack direction="row" spacing={1.5}>
+          <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="outlined"
+              startIcon={<ReportProblemRoundedIcon />}
+              onClick={handleAnalisarRiscos}
+              disabled={analisandoRiscos}
+            >
+              {analisandoRiscos ? 'Analisando...' : 'Analisar riscos'}
+            </Button>
             <Button
               variant="outlined"
               startIcon={<AssignmentTurnedInRoundedIcon />}
               onClick={() => navigate(`/projetos/${projetoId}/backlog`)}
             >
               Backlog & Sprints
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<RuleRoundedIcon />}
+              onClick={() => navigate(`/projetos/${projetoId}/automacoes`)}
+            >
+              Automações
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<DescriptionRoundedIcon />}
+              onClick={() => navigate(`/projetos/${projetoId}/documentacao`)}
+            >
+              Documentação
+            </Button>
+            <Button variant="outlined" startIcon={<GitHubIcon />} onClick={() => setDialogGithubAberto(true)}>
+              GitHub
             </Button>
             <Button
               variant="contained"
@@ -394,6 +444,13 @@ export function KanbanPage() {
         usuarios={usuarios}
       />
 
+      <IntegracaoGithubDialog
+        open={dialogGithubAberto}
+        onClose={() => setDialogGithubAberto(false)}
+        projetoId={projetoId}
+        podeGerenciar={podeGerenciarMembros}
+      />
+
       <Snackbar
         open={Boolean(erroArraste)}
         autoHideDuration={5000}
@@ -402,6 +459,17 @@ export function KanbanPage() {
       >
         <Alert severity="error" onClose={() => setErroArraste(null)} sx={{ maxWidth: 480 }}>
           {erroArraste}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={Boolean(mensagemRiscos)}
+        autoHideDuration={6000}
+        onClose={() => setMensagemRiscos(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="info" onClose={() => setMensagemRiscos(null)} sx={{ maxWidth: 480 }}>
+          {mensagemRiscos}
         </Alert>
       </Snackbar>
     </Box>

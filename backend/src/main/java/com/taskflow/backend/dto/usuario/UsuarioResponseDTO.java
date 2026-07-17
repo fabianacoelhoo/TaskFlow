@@ -1,7 +1,10 @@
 package com.taskflow.backend.dto.usuario;
 
+import com.taskflow.backend.entity.DisponibilidadeUsuario;
 import com.taskflow.backend.entity.Papel;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class UsuarioResponseDTO {
@@ -13,5 +16,11 @@ public class UsuarioResponseDTO {
     private String email;
 
     private Papel papel;
+
+    private String cargo;
+
+    private DisponibilidadeUsuario disponibilidade;
+
+    private List<String> habilidades;
 
 }

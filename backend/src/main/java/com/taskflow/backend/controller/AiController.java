@@ -1,5 +1,7 @@
 package com.taskflow.backend.controller;
 
+import com.taskflow.backend.dto.ai.AnaliseRiscoResponseDTO;
+import com.taskflow.backend.dto.ai.GerarDocumentoRequestDTO;
 import com.taskflow.backend.dto.ai.GerarPlanoBacklogRequestDTO;
 import com.taskflow.backend.dto.ai.GerarTarefasRequestDTO;
 import com.taskflow.backend.dto.ai.PerguntaRequestDTO;
@@ -7,6 +9,9 @@ import com.taskflow.backend.dto.ai.PlanoBacklogResponseDTO;
 import com.taskflow.backend.dto.ai.PrazoSugeridoDTO;
 import com.taskflow.backend.dto.ai.RespostaIaDTO;
 import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
+import com.taskflow.backend.dto.ai.SugerirResponsavelRequestDTO;
+import com.taskflow.backend.dto.ai.SugestaoResponsavelDTO;
+import com.taskflow.backend.dto.documento.DocumentoProjetoResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
 import com.taskflow.backend.service.AiService;
 import org.springframework.web.bind.annotation.*;
@@ -45,5 +50,24 @@ public class AiController {
             @PathVariable Long projetoId,
             @RequestBody GerarPlanoBacklogRequestDTO dto) {
         return aiService.gerarPlanoBacklog(projetoId, dto);
+    }
+
+    @PostMapping("/projetos/{projetoId}/analisar-riscos")
+    public AnaliseRiscoResponseDTO analisarRiscos(@PathVariable Long projetoId) {
+        return aiService.analisarRiscos(projetoId);
+    }
+
+    @PostMapping("/projetos/{projetoId}/sugerir-responsavel")
+    public SugestaoResponsavelDTO sugerirResponsavel(
+            @PathVariable Long projetoId,
+            @RequestBody SugerirResponsavelRequestDTO dto) {
+        return aiService.sugerirResponsavel(projetoId, dto);
+    }
+
+    @PostMapping("/projetos/{projetoId}/gerar-documento")
+    public DocumentoProjetoResponseDTO gerarDocumento(
+            @PathVariable Long projetoId,
+            @RequestBody GerarDocumentoRequestDTO dto) {
+        return aiService.gerarDocumento(projetoId, dto);
     }
 }

@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Box, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, Stack, Tooltip, Typography } from '@mui/material';
 import ChevronLeftRoundedIcon from '@mui/icons-material/ChevronLeftRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import WarningRoundedIcon from '@mui/icons-material/WarningRounded';
-import TodayRoundedIcon from '@mui/icons-material/TodayRounded';
 import type { Tarefa, Usuario } from '../../api/types';
 import { PRIORIDADE_COLOR } from '../../theme/status';
 import { palette } from '../../theme/theme';
@@ -76,22 +75,38 @@ export function CalendarView({ tarefas, usuariosPorId, onSelecionarTarefa }: Cal
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2.5 }}>
-        <Typography variant="subtitle1" sx={{ fontSize: '1.05rem' }}>
-          {MESES_LABEL[mesAtual.getMonth()]} {mesAtual.getFullYear()}
-        </Typography>
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          <Tooltip title="Ir para hoje">
-            <IconButton size="small" onClick={irParaHoje}>
-              <TodayRoundedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <IconButton size="small" onClick={mesAnterior}>
-            <ChevronLeftRoundedIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={proximoMes}>
-            <ChevronRightRoundedIcon fontSize="small" />
-          </IconButton>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        justifyContent="space-between"
+        spacing={1.5}
+        sx={{ mb: 2.5 }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Typography variant="subtitle1" sx={{ fontSize: '1.05rem' }}>
+            {MESES_LABEL[mesAtual.getMonth()]} {mesAtual.getFullYear()}
+          </Typography>
+          <Button size="small" variant="text" onClick={irParaHoje} sx={{ minWidth: 0, color: palette.gold, fontWeight: 700 }}>
+            Hoje
+          </Button>
+        </Stack>
+        <Stack direction="row" spacing={1}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ChevronLeftRoundedIcon />}
+            onClick={mesAnterior}
+          >
+            Mês anterior
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            endIcon={<ChevronRightRoundedIcon />}
+            onClick={proximoMes}
+          >
+            Próximo mês
+          </Button>
         </Stack>
       </Stack>
 

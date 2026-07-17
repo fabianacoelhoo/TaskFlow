@@ -23,6 +23,7 @@ import {
   listarTags,
   criarTag,
   sugerirPrazoComIA,
+  sugerirResponsavelComIA,
 } from '../api/resources';
 import { STATUS_LABEL, STATUS_ORDER } from '../theme/status';
 import { palette } from '../theme/theme';
@@ -65,6 +66,8 @@ export function TaskFormDialog({
   const [salvando, setSalvando] = useState(false);
   const [sugerindoPrazo, setSugerindoPrazo] = useState(false);
   const [justificativaPrazo, setJustificativaPrazo] = useState<string | null>(null);
+  const [sugerindoResponsavel, setSugerindoResponsavel] = useState(false);
+  const [justificativaResponsavel, setJustificativaResponsavel] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -101,6 +104,7 @@ export function TaskFormDialog({
       setDependencias([]);
     }
     setJustificativaPrazo(null);
+    setJustificativaResponsavel(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tarefaExistente, statusInicial, usuarios]);
 
@@ -116,6 +120,21 @@ export function TaskFormDialog({
       setJustificativaPrazo('Não foi possível sugerir um prazo agora.');
     } finally {
       setSugerindoPrazo(false);
+    }
+  }
+
+  async function sugerirResponsavel() {
+    if (!titulo.trim()) return;
+    setSugerindoResponsavel(true);
+    setJustificativaResponsavel(null);
+    try {
+      const sugestao = await sugerirResponsavelComIA(projetoId, titulo, descricao);
+      setResponsavelId(sugestao.responsavelId);
+      setJustificativaResponsavel(`${sugestao.nomeResponsavel}: ${sugestao.justificativa}`);
+    } catch {
+      setJustificativaResponsavel('Não foi possível sugerir um responsável agora.');
+    } finally {
+      setSugerindoResponsavel(false);
     }
   }
 
@@ -251,6 +270,24 @@ export function TaskFormDialog({
                 </MenuItem>
               ))}
             </TextField>
+
+            <Tooltip title="Sugerir responsável com IA">
+              <span>
+                <IconButton
+                  aria-label="Sugerir responsável com IA"
+                  onClick={sugerirResponsavel}
+                  disabled={!titulo.trim() || sugerindoResponsavel}
+                  sx={{
+                    mt: 0.5,
+                    bgcolor: 'rgba(176,141,79,0.12)',
+                    color: palette.gold,
+                    '&:hover': { bgcolor: 'rgba(176,141,79,0.22)' },
+                  }}
+                >
+                  <AutoAwesomeRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
           </Stack>
 
           <TextField
@@ -275,6 +312,16 @@ export function TaskFormDialog({
             >
               <AutoAwesomeRoundedIcon sx={{ fontSize: 13, color: palette.gold }} />
               {sugerindoPrazo ? 'Analisando a carga de trabalho...' : justificativaPrazo}
+            </Typography>
+          )}
+
+          {(sugerindoResponsavel || justificativaResponsavel) && (
+            <Typography
+              variant="caption"
+              sx={{ color: palette.slate, display: 'flex', alignItems: 'center', gap: 0.5, mt: -1.5 }}
+            >
+              <AutoAwesomeRoundedIcon sx={{ fontSize: 13, color: palette.gold }} />
+              {sugerindoResponsavel ? 'Avaliando cargo, habilidades e disponibilidade da equipe...' : justificativaResponsavel}
             </Typography>
           )}
 

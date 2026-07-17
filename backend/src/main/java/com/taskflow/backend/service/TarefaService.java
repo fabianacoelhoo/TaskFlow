@@ -34,6 +34,7 @@ public class TarefaService {
     private final HistoriaUsuarioRepository historiaUsuarioRepository;
     private final HistoricoService historicoService;
     private final NotificacaoService notificacaoService;
+    private final AutomacaoExecutorService automacaoExecutorService;
     private final AutenticacaoService autenticacaoService;
 
     public TarefaService(TarefaRepository tarefaRepository,
@@ -43,6 +44,7 @@ public class TarefaService {
                          HistoriaUsuarioRepository historiaUsuarioRepository,
                          HistoricoService historicoService,
                          NotificacaoService notificacaoService,
+                         AutomacaoExecutorService automacaoExecutorService,
                          AutenticacaoService autenticacaoService) {
         this.tarefaRepository = tarefaRepository;
         this.projetoService = projetoService;
@@ -51,6 +53,7 @@ public class TarefaService {
         this.historiaUsuarioRepository = historiaUsuarioRepository;
         this.historicoService = historicoService;
         this.notificacaoService = notificacaoService;
+        this.automacaoExecutorService = automacaoExecutorService;
         this.autenticacaoService = autenticacaoService;
     }
 
@@ -157,6 +160,7 @@ public class TarefaService {
         if (!Objects.equals(statusAnterior, salva.getStatus())) {
             historicoService.registrar(salva, autor,
                     "Status alterado de '" + statusAnterior + "' para '" + salva.getStatus() + "'");
+            automacaoExecutorService.executar(salva, autor);
         } else {
             historicoService.registrar(salva, autor, "Tarefa atualizada");
         }

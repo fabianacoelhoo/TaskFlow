@@ -11,6 +11,9 @@ import { PerfilPage } from './pages/PerfilPage';
 import { EmpresaPage } from './pages/EmpresaPage';
 import { BacklogPage } from './pages/BacklogPage';
 import { SprintPage } from './pages/SprintPage';
+import { AutomacoesPage } from './pages/AutomacoesPage';
+import { DocumentacaoPage } from './pages/DocumentacaoPage';
+import { GamificacaoPage } from './pages/GamificacaoPage';
 
 function App() {
   return (
@@ -30,7 +33,10 @@ function App() {
         <Route path="/projetos/:id" element={<KanbanPage />} />
         <Route path="/projetos/:id/backlog" element={<BacklogPage />} />
         <Route path="/projetos/:id/sprints/:sprintId" element={<SprintPage />} />
+        <Route path="/projetos/:id/automacoes" element={<AutomacoesPage />} />
+        <Route path="/projetos/:id/documentacao" element={<DocumentacaoPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
+        <Route path="/gamificacao" element={<GamificacaoPage />} />
         <Route path="/perfil" element={<PerfilPage />} />
         <Route path="/empresa" element={<EmpresaPage />} />
       </Route>

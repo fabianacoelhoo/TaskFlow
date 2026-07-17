@@ -1,5 +1,6 @@
 package com.taskflow.backend.service;
 
+import com.taskflow.backend.dto.usuario.UsuarioPerfilRequestDTO;
 import com.taskflow.backend.dto.usuario.UsuarioResponseDTO;
 import com.taskflow.backend.entity.Papel;
 import com.taskflow.backend.entity.Usuario;
@@ -9,6 +10,7 @@ import com.taskflow.backend.repository.UsuarioRepository;
 import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -46,12 +48,23 @@ public class UsuarioService {
         return toResponseDTO(usuarioRepository.save(usuario));
     }
 
+    public UsuarioResponseDTO atualizarPerfil(Usuario autor, UsuarioPerfilRequestDTO dto) {
+        autor.setCargo(dto.getCargo());
+        autor.setDisponibilidade(dto.getDisponibilidade());
+        autor.setHabilidades(dto.getHabilidades() != null ? new ArrayList<>(dto.getHabilidades()) : new ArrayList<>());
+
+        return toResponseDTO(usuarioRepository.save(autor));
+    }
+
     private UsuarioResponseDTO toResponseDTO(Usuario usuario) {
         UsuarioResponseDTO dto = new UsuarioResponseDTO();
         dto.setId(usuario.getId());
         dto.setNome(usuario.getNome());
         dto.setEmail(usuario.getEmail());
         dto.setPapel(usuario.getPapel());
+        dto.setCargo(usuario.getCargo());
+        dto.setDisponibilidade(usuario.getDisponibilidade());
+        dto.setHabilidades(usuario.getHabilidades());
         return dto;
     }
 }

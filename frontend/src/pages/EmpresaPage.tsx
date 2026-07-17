@@ -5,6 +5,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   MenuItem,
   Select,
   Snackbar,
@@ -21,6 +22,7 @@ import { PageHeader } from '../components/PageHeader';
 import { Reveal } from '../components/Reveal';
 import { useAuth } from '../auth/AuthContext';
 import { palette } from '../theme/theme';
+import { DISPONIBILIDADE_COLOR, DISPONIBILIDADE_LABEL } from '../theme/status';
 import { alterarPapel, listarUsuarios, obterEmpresa, regenerarCodigoConvite } from '../api/resources';
 import type { Empresa, Papel, Usuario } from '../api/types';
 
@@ -174,9 +176,21 @@ export function EmpresaPage() {
                         {u.nome}
                       </Typography>
                       <Typography variant="caption" sx={{ color: palette.slateLight }} noWrap>
-                        {u.email}
+                        {u.cargo || u.email}
                       </Typography>
                     </Box>
+                    {u.disponibilidade && (
+                      <Chip
+                        label={DISPONIBILIDADE_LABEL[u.disponibilidade]}
+                        size="small"
+                        sx={{
+                          bgcolor: `${DISPONIBILIDADE_COLOR[u.disponibilidade]}1F`,
+                          color: DISPONIBILIDADE_COLOR[u.disponibilidade],
+                          fontWeight: 600,
+                          display: { xs: 'none', sm: 'flex' },
+                        }}
+                      />
+                    )}
                     <Select
                       size="small"
                       value={u.papel ?? 'MEMBRO'}

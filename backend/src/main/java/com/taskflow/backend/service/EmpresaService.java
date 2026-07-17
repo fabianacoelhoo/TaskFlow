@@ -116,6 +116,9 @@ public class EmpresaService {
         dto.setNome(usuario.getNome());
         dto.setEmail(usuario.getEmail());
         dto.setPapel(usuario.getPapel());
+        dto.setCargo(usuario.getCargo());
+        dto.setDisponibilidade(usuario.getDisponibilidade());
+        dto.setHabilidades(usuario.getHabilidades());
         return dto;
     }
 }

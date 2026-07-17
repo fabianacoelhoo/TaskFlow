@@ -19,7 +19,12 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import EventRoundedIcon from '@mui/icons-material/EventRounded';
-import type { Anexo, Comentario, HistoricoItem, Tarefa, Usuario } from '../api/types';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
+import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded';
+import CommitRoundedIcon from '@mui/icons-material/CommitRounded';
+import MergeTypeRoundedIcon from '@mui/icons-material/MergeTypeRounded';
+import type { AtividadeGithub, Anexo, Comentario, HistoricoItem, Tarefa, Usuario } from '../api/types';
 import {
   baixarAnexo,
   criarComentario,
@@ -28,6 +33,7 @@ import {
   listarAnexos,
   listarComentarios,
   listarHistorico,
+  obterAtividadeGithub,
 } from '../api/resources';
 import { palette } from '../theme/theme';
 import { PRIORIDADE_COLOR, PRIORIDADE_LABEL, STATUS_COLOR, STATUS_LABEL } from '../theme/status';
@@ -53,17 +59,33 @@ export function TaskDetailDrawer({ tarefa, responsavel, onClose, onEditar, onExc
   const [novoComentario, setNovoComentario] = useState('');
   const [enviandoComentario, setEnviandoComentario] = useState(false);
   const [enviandoAnexo, setEnviandoAnexo] = useState(false);
+  const [atividadeGithub, setAtividadeGithub] = useState<AtividadeGithub | null>(null);
+  const [carregandoGithub, setCarregandoGithub] = useState(false);
+  const [erroGithub, setErroGithub] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tarefa) return;
     setAba(0);
     carregarTudo(tarefa.id);
+    carregarGithub(tarefa.id);
   }, [tarefa]);
 
   function carregarTudo(tarefaId: number) {
     listarComentarios(tarefaId).then(setComentarios);
     listarHistorico(tarefaId).then(setHistorico);
     listarAnexos(tarefaId).then(setAnexos);
+  }
+
+  function carregarGithub(tarefaId: number) {
+    setCarregandoGithub(true);
+    setErroGithub(null);
+    obterAtividadeGithub(tarefaId)
+      .then(setAtividadeGithub)
+      .catch((err) => {
+        setAtividadeGithub(null);
+        setErroGithub(err?.response?.data?.erro ?? 'Não foi possível consultar o GitHub agora.');
+      })
+      .finally(() => setCarregandoGithub(false));
   }
 
   async function handleComentar() {
@@ -212,6 +234,7 @@ export function TaskDetailDrawer({ tarefa, responsavel, onClose, onEditar, onExc
             <Tab label={`Comentários (${comentarios.length})`} />
             <Tab label={`Anexos (${anexos.length})`} />
             <Tab label="Histórico" />
+            <Tab label="GitHub" icon={<GitHubIcon fontSize="small" />} iconPosition="start" sx={{ minHeight: 48 }} />
           </Tabs>
 
           <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
@@ -317,6 +340,94 @@ export function TaskDetailDrawer({ tarefa, responsavel, onClose, onEditar, onExc
                       </Box>
                     </Stack>
                   ))}
+              </Stack>
+            )}
+
+            {aba === 3 && (
+              <Stack spacing={2.5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="caption" sx={{ color: palette.slateLight }}>
+                    Busca por <code>tarefa-{tarefa.id}</code> em branches, commits e PRs.
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<RefreshRoundedIcon />}
+                    onClick={() => carregarGithub(tarefa.id)}
+                    disabled={carregandoGithub}
+                  >
+                    Sincronizar
+                  </Button>
+                </Stack>
+
+                {carregandoGithub && <Typography variant="body2">Consultando o GitHub...</Typography>}
+
+                {!carregandoGithub && erroGithub && (
+                  <Typography variant="body2" sx={{ color: palette.slateLight }}>
+                    {erroGithub}
+                  </Typography>
+                )}
+
+                {!carregandoGithub && atividadeGithub && (
+                  <>
+                    {atividadeGithub.branches.length === 0 &&
+                      atividadeGithub.commits.length === 0 &&
+                      atividadeGithub.pullRequests.length === 0 && (
+                        <Typography variant="body2" sx={{ color: palette.slateLight }}>
+                          Nenhuma atividade encontrada ainda para essa tarefa.
+                        </Typography>
+                      )}
+
+                    {atividadeGithub.branches.length > 0 && (
+                      <Stack spacing={1}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: palette.slateLight }}>
+                          BRANCHES
+                        </Typography>
+                        {atividadeGithub.branches.map((b) => (
+                          <Stack key={b.nome} component="a" href={b.url} target="_blank" rel="noopener" direction="row" spacing={1} alignItems="center" sx={{ color: palette.ink, textDecoration: 'none' }}>
+                            <CallSplitRoundedIcon fontSize="small" sx={{ color: palette.slateLight }} />
+                            <Typography variant="body2">{b.nome}</Typography>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    )}
+
+                    {atividadeGithub.commits.length > 0 && (
+                      <Stack spacing={1}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: palette.slateLight }}>
+                          COMMITS
+                        </Typography>
+                        {atividadeGithub.commits.map((c) => (
+                          <Stack key={c.sha} component="a" href={c.url} target="_blank" rel="noopener" direction="row" spacing={1} alignItems="flex-start" sx={{ color: palette.ink, textDecoration: 'none' }}>
+                            <CommitRoundedIcon fontSize="small" sx={{ color: palette.slateLight, mt: 0.25 }} />
+                            <Box>
+                              <Typography variant="body2">{c.mensagem}</Typography>
+                              <Typography variant="caption" sx={{ color: palette.slateLight }}>
+                                {c.autor} · {c.sha}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        ))}
+                      </Stack>
+                    )}
+
+                    {atividadeGithub.pullRequests.length > 0 && (
+                      <Stack spacing={1}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: palette.slateLight }}>
+                          PULL REQUESTS
+                        </Typography>
+                        {atividadeGithub.pullRequests.map((pr) => (
+                          <Stack key={pr.numero} component="a" href={pr.url} target="_blank" rel="noopener" direction="row" spacing={1} alignItems="center" sx={{ color: palette.ink, textDecoration: 'none' }}>
+                            <MergeTypeRoundedIcon fontSize="small" sx={{ color: palette.slateLight }} />
+                            <Typography variant="body2" sx={{ flex: 1 }}>
+                              #{pr.numero} {pr.titulo}
+                            </Typography>
+                            <Chip label={pr.estado} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+                          </Stack>
+                        ))}
+                      </Stack>
+                    )}
+                  </>
+                )}
               </Stack>
             )}
           </Box>

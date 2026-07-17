@@ -2,11 +2,16 @@ export type StatusTarefa = 'A_FAZER' | 'EM_ANDAMENTO' | 'CONCLUIDO';
 
 export type Papel = 'ADMIN' | 'MEMBRO';
 
+export type DisponibilidadeUsuario = 'DISPONIVEL' | 'PARCIAL' | 'INDISPONIVEL';
+
 export interface Usuario {
   id: number;
   nome: string;
   email: string;
   papel: Papel | null;
+  cargo: string | null;
+  disponibilidade: DisponibilidadeUsuario | null;
+  habilidades: string[];
 }
 
 export interface Empresa {
@@ -83,6 +88,12 @@ export interface Notificacao {
   tarefaId: number | null;
 }
 
+export interface ProdutividadeItem {
+  usuarioId: number;
+  nome: string;
+  tarefasConcluidas: number;
+}
+
 export interface Dashboard {
   totalProjetos: number;
   totalTarefas: number;
@@ -90,6 +101,9 @@ export interface Dashboard {
   tarefasEmAndamento: number;
   tarefasConcluidas: number;
   tarefasAtrasadas: number;
+  tarefasParadas: number;
+  produtividadeEquipe: ProdutividadeItem[];
+  velocidadeRecente: VelocidadeItem[];
 }
 
 export interface Epico {
@@ -150,4 +164,120 @@ export interface PlanoBacklogGerado {
   epico: Epico;
   historias: HistoriaUsuario[];
   riscos: string[];
+}
+
+export interface AnaliseRisco {
+  alertasGerados: number;
+}
+
+export interface SugestaoResponsavel {
+  responsavelId: number;
+  nomeResponsavel: string;
+  justificativa: string;
+}
+
+export type TipoAcaoAutomacao =
+  | 'NOTIFICAR_RESPONSAVEL'
+  | 'NOTIFICAR_MEMBROS_PROJETO'
+  | 'MOVER_PARA_STATUS'
+  | 'ADICIONAR_TAG';
+
+export interface AcaoAutomacao {
+  id: number;
+  tipo: TipoAcaoAutomacao;
+  mensagem: string | null;
+  statusDestino: StatusTarefa | null;
+  tagId: number | null;
+  tagNome: string | null;
+}
+
+export interface RegraAutomacao {
+  id: number;
+  nome: string;
+  projetoId: number;
+  statusGatilho: StatusTarefa;
+  ativa: boolean;
+  acoes: AcaoAutomacao[];
+}
+
+export type CategoriaDocumento =
+  | 'DOCUMENTACAO_TECNICA'
+  | 'REQUISITOS'
+  | 'ARQUITETURA'
+  | 'BANCO_DE_DADOS'
+  | 'REGRAS_DE_NEGOCIO'
+  | 'DECISOES'
+  | 'OUTRO';
+
+export interface DocumentoProjeto {
+  id: number;
+  titulo: string;
+  categoria: CategoriaDocumento;
+  conteudo: string;
+  projetoId: number;
+  criadoPorNome: string | null;
+  criadoEm: string;
+  atualizadoEm: string | null;
+}
+
+export type CodigoConquista =
+  | 'PRIMEIRA_TAREFA'
+  | 'DEZ_TAREFAS'
+  | 'CINQUENTA_TAREFAS'
+  | 'CEM_PONTOS'
+  | 'QUINHENTOS_PONTOS'
+  | 'MULTIPROJETOS';
+
+export interface Conquista {
+  codigo: CodigoConquista;
+  nome: string;
+  descricao: string;
+  desbloqueada: boolean;
+  desbloqueadaEm: string | null;
+}
+
+export interface PerfilGamificacao {
+  pontos: number;
+  tarefasConcluidas: number;
+  conquistas: Conquista[];
+}
+
+export interface RankingItem {
+  usuarioId: number;
+  nome: string;
+  pontos: number;
+  tarefasConcluidas: number;
+}
+
+export interface StatusGithub {
+  conectado: boolean;
+  repositorioOwner: string | null;
+  repositorioNome: string | null;
+}
+
+export interface BranchGithub {
+  nome: string;
+  url: string;
+}
+
+export interface CommitGithub {
+  sha: string;
+  mensagem: string;
+  autor: string;
+  data: string;
+  url: string;
+}
+
+export interface PullRequestGithub {
+  numero: number;
+  titulo: string;
+  estado: string;
+  autor: string;
+  url: string;
+}
+
+export interface AtividadeGithub {
+  branches: BranchGithub[];
+  commits: CommitGithub[];
+  pullRequests: PullRequestGithub[];
 }

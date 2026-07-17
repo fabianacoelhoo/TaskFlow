@@ -1,4 +1,4 @@
-import type { StatusTarefa } from '../api/types';
+import type { DisponibilidadeUsuario, StatusTarefa } from '../api/types';
 
 export const STATUS_LABEL: Record<StatusTarefa, string> = {
   A_FAZER: 'A Fazer',
@@ -26,4 +26,16 @@ export const PRIORIDADE_LABEL: Record<string, string> = {
   ALTA: 'Alta',
   MEDIA: 'Média',
   BAIXA: 'Baixa',
+};
+
+export const DISPONIBILIDADE_LABEL: Record<DisponibilidadeUsuario, string> = {
+  DISPONIVEL: 'Disponível',
+  PARCIAL: 'Parcialmente disponível',
+  INDISPONIVEL: 'Indisponível',
+};
+
+export const DISPONIBILIDADE_COLOR: Record<DisponibilidadeUsuario, string> = {
+  DISPONIVEL: '#008300',
+  PARCIAL: '#B08D4F',
+  INDISPONIVEL: '#B3441E',
 };

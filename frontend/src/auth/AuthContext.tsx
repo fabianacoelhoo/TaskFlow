@@ -9,6 +9,7 @@ interface AuthContextValue {
   carregandoUsuario: boolean;
   entrar: (token: string) => void;
   sair: () => void;
+  recarregarUsuario: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -43,8 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
   };
 
+  const recarregarUsuario = async () => {
+    const atualizado = await usuarioAtual();
+    setUsuario(atualizado);
+  };
+
   const value = useMemo(
-    () => ({ token, usuario, isAuthenticated: Boolean(token), carregandoUsuario, entrar, sair }),
+    () => ({ token, usuario, isAuthenticated: Boolean(token), carregandoUsuario, entrar, sair, recarregarUsuario }),
     [token, usuario, carregandoUsuario],
   );
 

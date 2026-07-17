@@ -157,7 +157,11 @@ public class ProjetoService {
         }
     }
 
-    private boolean podeGerenciarMembros(Usuario autor, Projeto projeto) {
+    /**
+     * Dono do projeto ou ADMIN da empresa: quem pode gerenciar membros, excluir o
+     * projeto ou configurar automações que afetam todo o time.
+     */
+    public boolean podeGerenciarMembros(Usuario autor, Projeto projeto) {
         return autor.getPapel() == Papel.ADMIN
                 || (projeto.getCriadoPor() != null && projeto.getCriadoPor().getId().equals(autor.getId()));
     }
@@ -180,6 +184,9 @@ public class ProjetoService {
         dto.setNome(usuario.getNome());
         dto.setEmail(usuario.getEmail());
         dto.setPapel(usuario.getPapel());
+        dto.setCargo(usuario.getCargo());
+        dto.setDisponibilidade(usuario.getDisponibilidade());
+        dto.setHabilidades(usuario.getHabilidades());
         return dto;
     }
 }

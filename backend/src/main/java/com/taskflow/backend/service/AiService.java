@@ -5,6 +5,10 @@ import org.slf4j.LoggerFactory;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
+import com.taskflow.backend.dto.ai.AnaliseRiscoGerada;
+import com.taskflow.backend.dto.ai.AnaliseRiscoResponseDTO;
+import com.taskflow.backend.dto.ai.DocumentoGerado;
+import com.taskflow.backend.dto.ai.GerarDocumentoRequestDTO;
 import com.taskflow.backend.dto.ai.GerarPlanoBacklogRequestDTO;
 import com.taskflow.backend.dto.ai.GerarTarefasRequestDTO;
 import com.taskflow.backend.dto.ai.PlanoBacklogGerado;
@@ -12,26 +16,37 @@ import com.taskflow.backend.dto.ai.PlanoBacklogResponseDTO;
 import com.taskflow.backend.dto.ai.PlanoGerado;
 import com.taskflow.backend.dto.ai.PrazoGerado;
 import com.taskflow.backend.dto.ai.PrazoSugeridoDTO;
+import com.taskflow.backend.dto.ai.ResponsavelGerado;
 import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
+import com.taskflow.backend.dto.ai.SugerirResponsavelRequestDTO;
+import com.taskflow.backend.dto.ai.SugestaoResponsavelDTO;
+import com.taskflow.backend.dto.documento.DocumentoProjetoRequestDTO;
+import com.taskflow.backend.dto.documento.DocumentoProjetoResponseDTO;
 import com.taskflow.backend.dto.epico.EpicoRequestDTO;
 import com.taskflow.backend.dto.epico.EpicoResponseDTO;
 import com.taskflow.backend.dto.historiausuario.HistoriaUsuarioRequestDTO;
 import com.taskflow.backend.dto.historiausuario.HistoriaUsuarioResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaRequestDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
+import com.taskflow.backend.entity.HistoriaUsuario;
+import com.taskflow.backend.entity.Historico;
 import com.taskflow.backend.entity.Projeto;
+import com.taskflow.backend.entity.Sprint;
+import com.taskflow.backend.entity.StatusHistoria;
+import com.taskflow.backend.entity.StatusSprint;
 import com.taskflow.backend.entity.StatusTarefa;
 import com.taskflow.backend.entity.Tarefa;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.exception.ValidacaoException;
+import com.taskflow.backend.repository.HistoricoRepository;
+import com.taskflow.backend.repository.HistoriaUsuarioRepository;
+import com.taskflow.backend.repository.SprintRepository;
 import com.taskflow.backend.repository.TarefaRepository;
 import com.taskflow.backend.repository.UsuarioRepository;
 import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
 
 import java.io.IOException;
 import java.net.URI;
@@ -39,9 +54,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class AiService {
@@ -55,12 +75,19 @@ public class AiService {
     private final TarefaService tarefaService;
     private final EpicoService epicoService;
     private final HistoriaUsuarioService historiaUsuarioService;
+    private final DocumentoProjetoService documentoProjetoService;
+    private final SprintRepository sprintRepository;
+    private final HistoriaUsuarioRepository historiaUsuarioRepository;
+    private final HistoricoRepository historicoRepository;
+    private final NotificacaoService notificacaoService;
     private final UsuarioRepository usuarioRepository;
     private final AutenticacaoService autenticacaoService;
 
     private final String apiKey;
     private final String model;
     private final String baseUrl;
+
+    private static final int LIMIAR_DIAS_PARADA = 5;
 
     public AiService(HttpClient httpClient,
                       ObjectMapper objectMapper,
@@ -69,6 +96,11 @@ public class AiService {
                       TarefaService tarefaService,
                       EpicoService epicoService,
                       HistoriaUsuarioService historiaUsuarioService,
+                      DocumentoProjetoService documentoProjetoService,
+                      SprintRepository sprintRepository,
+                      HistoriaUsuarioRepository historiaUsuarioRepository,
+                      HistoricoRepository historicoRepository,
+                      NotificacaoService notificacaoService,
                       UsuarioRepository usuarioRepository,
                       AutenticacaoService autenticacaoService,
                       @Value("${gemini.api-key}") String apiKey,
@@ -81,6 +113,11 @@ public class AiService {
         this.tarefaService = tarefaService;
         this.epicoService = epicoService;
         this.historiaUsuarioService = historiaUsuarioService;
+        this.documentoProjetoService = documentoProjetoService;
+        this.sprintRepository = sprintRepository;
+        this.historiaUsuarioRepository = historiaUsuarioRepository;
+        this.historicoRepository = historicoRepository;
+        this.notificacaoService = notificacaoService;
         this.usuarioRepository = usuarioRepository;
         this.autenticacaoService = autenticacaoService;
         this.apiKey = apiKey;
@@ -211,6 +248,198 @@ public class AiService {
         tarefaService.criar(dto, projetoId, responsavelId);
     }
 
+    public DocumentoProjetoResponseDTO gerarDocumento(Long projetoId, GerarDocumentoRequestDTO dto) {
+        garantirChaveConfigurada();
+
+        Projeto projeto = projetoService.buscarPorId(projetoId);
+
+        String sistema = """
+                Você é um redator técnico sênior de software. Escreva um documento em Markdown \
+                bem estruturado (use títulos com #, listas e blocos de código quando fizer \
+                sentido) sobre o que foi pedido. Seja objetivo e use português. Não inclua nada \
+                fora do conteúdo do documento em si.""";
+        String entrada = "Projeto: " + projeto.getNome()
+                + "\nCategoria do documento: " + dto.getCategoria()
+                + "\nTítulo: " + dto.getTitulo()
+                + (dto.getInstrucoes() != null && !dto.getInstrucoes().isBlank() ? "\n\nInstruções: " + dto.getInstrucoes() : "");
+
+        JsonNode resposta = enviar(sistema, entrada, construirEsquemaDocumento());
+        String textoJson = extrairTexto(resposta);
+
+        DocumentoGerado gerado;
+        try {
+            gerado = objectMapper.readValue(textoJson, DocumentoGerado.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        DocumentoProjetoRequestDTO documentoDto = new DocumentoProjetoRequestDTO();
+        documentoDto.setTitulo(dto.getTitulo());
+        documentoDto.setCategoria(dto.getCategoria());
+        documentoDto.setConteudo(gerado.conteudo());
+
+        return documentoProjetoService.criar(projetoId, documentoDto);
+    }
+
+    private ObjectNode construirEsquemaDocumento() {
+        ObjectNode propriedades = objectMapper.createObjectNode();
+        propriedades.set("conteudo", campoTexto("O documento completo, em Markdown, em português"));
+
+        ObjectNode esquema = objectMapper.createObjectNode();
+        esquema.put("type", "object");
+        esquema.set("properties", propriedades);
+        esquema.set("required", objectMapper.createArrayNode().add("conteudo"));
+
+        ObjectNode responseFormat = objectMapper.createObjectNode();
+        responseFormat.put("type", "text");
+        responseFormat.put("mime_type", "application/json");
+        responseFormat.set("schema", esquema);
+        return responseFormat;
+    }
+
+    public AnaliseRiscoResponseDTO analisarRiscos(Long projetoId) {
+        garantirChaveConfigurada();
+
+        Projeto projeto = projetoService.buscarPorId(projetoId);
+        String contexto = montarContextoRiscos(projeto);
+
+        String sistema = """
+                Você é um assistente de gestão de projetos de software sênior. Com base SOMENTE nos \
+                dados fornecidos sobre o estado atual do projeto, identifique riscos reais de atraso \
+                ou problemas de andamento e gere no máximo 5 alertas curtos, objetivos e em português. \
+                Informe o id da tarefa quando o alerta for sobre uma tarefa específica; omita o id \
+                quando o risco for do projeto ou da sprint como um todo. Se não houver nenhum risco \
+                real com base nos dados, retorne uma lista vazia — não invente problemas.""";
+
+        JsonNode resposta = enviar(sistema, contexto, construirEsquemaAnaliseRiscos());
+        String textoJson = extrairTexto(resposta);
+
+        AnaliseRiscoGerada analise;
+        try {
+            analise = objectMapper.readValue(textoJson, AnaliseRiscoGerada.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        if (analise.alertas() == null || analise.alertas().isEmpty()) {
+            return new AnaliseRiscoResponseDTO(0);
+        }
+
+        Map<Long, Tarefa> tarefasDoProjeto = tarefaRepository.findByProjetoId(projetoId).stream()
+                .collect(Collectors.toMap(Tarefa::getId, t -> t));
+
+        for (AnaliseRiscoGerada.AlertaRiscoGerado alerta : analise.alertas()) {
+            Tarefa tarefa = alerta.tarefaId() != null ? tarefasDoProjeto.get(alerta.tarefaId()) : null;
+
+            if (tarefa != null) {
+                notificacaoService.criar(tarefa.getResponsavel(), alerta.mensagem(), tarefa);
+            } else {
+                for (Usuario membro : projeto.getMembros()) {
+                    notificacaoService.criar(membro, alerta.mensagem(), null);
+                }
+            }
+        }
+
+        return new AnaliseRiscoResponseDTO(analise.alertas().size());
+    }
+
+    private String montarContextoRiscos(Projeto projeto) {
+        List<Tarefa> tarefas = tarefaRepository.findByProjetoId(projeto.getId());
+        LocalDate hoje = LocalDate.now();
+        LocalDateTime agora = LocalDateTime.now();
+
+        List<Tarefa> atrasadas = tarefas.stream()
+                .filter(t -> t.getStatus() != StatusTarefa.CONCLUIDO)
+                .filter(t -> t.getPrazo() != null && t.getPrazo().isBefore(hoje))
+                .toList();
+
+        List<Tarefa> paradas = tarefas.stream()
+                .filter(t -> t.getStatus() != StatusTarefa.CONCLUIDO)
+                .filter(t -> diasParada(t, agora) >= LIMIAR_DIAS_PARADA)
+                .toList();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Projeto: ").append(projeto.getNome()).append("\n");
+        sb.append("Data de hoje: ").append(hoje).append("\n\n");
+
+        sb.append("Tarefas atrasadas (prazo já passou, não concluídas):\n");
+        sb.append(atrasadas.isEmpty() ? "  (nenhuma)\n" : "");
+        for (Tarefa t : atrasadas) {
+            sb.append("  - [id ").append(t.getId()).append("] \"").append(t.getTitulo()).append("\"")
+                    .append(" | responsável: ").append(t.getResponsavel().getNome())
+                    .append(" | prazo: ").append(t.getPrazo())
+                    .append("\n");
+        }
+
+        sb.append("\nTarefas paradas (sem nenhuma atualização há ").append(LIMIAR_DIAS_PARADA)
+                .append(" dias ou mais, não concluídas):\n");
+        sb.append(paradas.isEmpty() ? "  (nenhuma)\n" : "");
+        for (Tarefa t : paradas) {
+            sb.append("  - [id ").append(t.getId()).append("] \"").append(t.getTitulo()).append("\"")
+                    .append(" | responsável: ").append(t.getResponsavel().getNome())
+                    .append(" | parada há ").append(diasParada(t, agora)).append(" dia(s)")
+                    .append("\n");
+        }
+
+        List<Sprint> sprintsAtivas = sprintRepository.findByProjetoIdAndStatus(projeto.getId(), StatusSprint.ATIVA);
+        sb.append("\nSprint ativa:\n");
+        if (sprintsAtivas.isEmpty()) {
+            sb.append("  (nenhuma sprint ativa)\n");
+        }
+        for (Sprint sprint : sprintsAtivas) {
+            List<HistoriaUsuario> historias = historiaUsuarioRepository.findBySprintId(sprint.getId());
+            int totalPontos = historias.stream().mapToInt(h -> h.getPontos() != null ? h.getPontos() : 0).sum();
+            int pontosRestantes = historias.stream()
+                    .filter(h -> h.getStatus() != StatusHistoria.CONCLUIDA)
+                    .mapToInt(h -> h.getPontos() != null ? h.getPontos() : 0)
+                    .sum();
+            long diasRestantes = sprint.getDataFim() != null ? ChronoUnit.DAYS.between(hoje, sprint.getDataFim()) : 0;
+            sb.append("  - \"").append(sprint.getNome()).append("\" termina em ").append(diasRestantes).append(" dia(s)")
+                    .append(" | ").append(pontosRestantes).append(" de ").append(totalPontos)
+                    .append(" pontos ainda não concluídos\n");
+        }
+
+        return sb.toString();
+    }
+
+    private long diasParada(Tarefa tarefa, LocalDateTime agora) {
+        List<Historico> historico = historicoRepository.findByTarefaIdOrderByDataAsc(tarefa.getId());
+        if (historico.isEmpty()) {
+            return 0;
+        }
+        LocalDateTime ultima = historico.get(historico.size() - 1).getData();
+        return ChronoUnit.DAYS.between(ultima, agora);
+    }
+
+    private ObjectNode construirEsquemaAnaliseRiscos() {
+        ObjectNode propriedadesAlerta = objectMapper.createObjectNode();
+        propriedadesAlerta.set("tarefaId", campoNumero("Id da tarefa relacionada ao risco, se houver uma específica"));
+        propriedadesAlerta.set("mensagem", campoTexto("Alerta curto e objetivo, em português, explicando o risco"));
+
+        ObjectNode itemAlerta = objectMapper.createObjectNode();
+        itemAlerta.put("type", "object");
+        itemAlerta.set("properties", propriedadesAlerta);
+        itemAlerta.set("required", objectMapper.createArrayNode().add("mensagem"));
+
+        ObjectNode arrayAlertas = objectMapper.createObjectNode();
+        arrayAlertas.put("type", "array");
+        arrayAlertas.set("items", itemAlerta);
+
+        ObjectNode propriedadesEsquema = objectMapper.createObjectNode();
+        propriedadesEsquema.set("alertas", arrayAlertas);
+
+        ObjectNode esquema = objectMapper.createObjectNode();
+        esquema.put("type", "object");
+        esquema.set("properties", propriedadesEsquema);
+        esquema.set("required", objectMapper.createArrayNode().add("alertas"));
+
+        ObjectNode responseFormat = objectMapper.createObjectNode();
+        responseFormat.put("type", "text");
+        responseFormat.put("mime_type", "application/json");
+        responseFormat.set("schema", esquema);
+        return responseFormat;
+    }
+
     public PrazoSugeridoDTO sugerirPrazo(SugerirPrazoRequestDTO dto) {
         garantirChaveConfigurada();
 
@@ -287,6 +516,86 @@ public class AiService {
         return responseFormat;
     }
 
+    public SugestaoResponsavelDTO sugerirResponsavel(Long projetoId, SugerirResponsavelRequestDTO dto) {
+        garantirChaveConfigurada();
+
+        Projeto projeto = projetoService.buscarPorId(projetoId);
+        List<Usuario> membros = projeto.getMembros();
+
+        if (membros.isEmpty()) {
+            throw new ValidacaoException("Este projeto ainda não tem membros para sugerir um responsável.");
+        }
+
+        String contexto = montarContextoMembros(projeto, membros, dto);
+
+        String sistema = """
+                Você é um assistente de gestão de equipes de software. Com base no cargo, nas \
+                habilidades, na disponibilidade e na quantidade de tarefas abertas de cada membro \
+                do projeto, escolha quem é o mais adequado para a nova tarefa descrita. Priorize \
+                quem tem habilidades relacionadas ao assunto da tarefa e está com disponibilidade \
+                melhor (evite escolher alguém indisponível se houver outra opção viável). Responda \
+                com o id do responsável escolhido e uma justificativa curta e objetiva em português.""";
+
+        JsonNode resposta = enviar(sistema, contexto, construirEsquemaResponsavel());
+        String textoJson = extrairTexto(resposta);
+
+        ResponsavelGerado gerado;
+        try {
+            gerado = objectMapper.readValue(textoJson, ResponsavelGerado.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        Usuario escolhido = membros.stream()
+                .filter(m -> m.getId().equals(gerado.responsavelId()))
+                .findFirst()
+                .orElseThrow(() -> new ValidacaoException("A IA sugeriu alguém que não é membro deste projeto."));
+
+        return new SugestaoResponsavelDTO(escolhido.getId(), escolhido.getNome(), gerado.justificativa());
+    }
+
+    private String montarContextoMembros(Projeto projeto, List<Usuario> membros, SugerirResponsavelRequestDTO dto) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Projeto: ").append(projeto.getNome()).append("\n\n");
+        sb.append("Membros do projeto:\n");
+        for (Usuario membro : membros) {
+            long tarefasAbertas = tarefaRepository.findByResponsavelId(membro.getId()).stream()
+                    .filter(t -> t.getStatus() != StatusTarefa.CONCLUIDO)
+                    .count();
+
+            sb.append("  - [id ").append(membro.getId()).append("] ").append(membro.getNome())
+                    .append(" | cargo: ").append(membro.getCargo() != null ? membro.getCargo() : "não informado")
+                    .append(" | habilidades: ").append(membro.getHabilidades().isEmpty() ? "não informadas" : String.join(", ", membro.getHabilidades()))
+                    .append(" | disponibilidade: ").append(membro.getDisponibilidade())
+                    .append(" | tarefas abertas no momento: ").append(tarefasAbertas)
+                    .append("\n");
+        }
+
+        sb.append("\nNova tarefa: \"").append(dto.getTitulo()).append("\"");
+        if (dto.getDescricao() != null && !dto.getDescricao().isBlank()) {
+            sb.append("\nDescrição: ").append(dto.getDescricao());
+        }
+
+        return sb.toString();
+    }
+
+    private ObjectNode construirEsquemaResponsavel() {
+        ObjectNode propriedades = objectMapper.createObjectNode();
+        propriedades.set("responsavelId", campoNumero("Id do membro escolhido como responsável"));
+        propriedades.set("justificativa", campoTexto("Justificativa curta e objetiva, em português"));
+
+        ObjectNode esquema = objectMapper.createObjectNode();
+        esquema.put("type", "object");
+        esquema.set("properties", propriedades);
+        esquema.set("required", objectMapper.createArrayNode().add("responsavelId").add("justificativa"));
+
+        ObjectNode responseFormat = objectMapper.createObjectNode();
+        responseFormat.put("type", "text");
+        responseFormat.put("mime_type", "application/json");
+        responseFormat.set("schema", esquema);
+        return responseFormat;
+    }
+
     private TarefaResponseDTO criarTarefaGerada(Long projetoId, Long responsavelId, PlanoGerado.TarefaGerada gerada) {
         TarefaRequestDTO dto = new TarefaRequestDTO();
         dto.setTitulo(gerada.titulo());
@@ -300,6 +609,8 @@ public class AiService {
         return tarefaService.criar(dto, projetoId, responsavelId);
     }
 
+    private static final int MAX_TENTATIVAS_GEMINI = 3;
+
     private JsonNode enviar(String systemInstruction, String input, ObjectNode responseFormat) {
         ObjectNode corpo = objectMapper.createObjectNode();
         corpo.put("model", model);
@@ -309,27 +620,53 @@ public class AiService {
             corpo.set("response_format", responseFormat);
         }
 
-        try {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(baseUrl))
-                    .header("x-goog-api-key", apiKey)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(corpo)))
-                    .build();
+        for (int tentativa = 1; tentativa <= MAX_TENTATIVAS_GEMINI; tentativa++) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(baseUrl))
+                        .header("x-goog-api-key", apiKey)
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(corpo)))
+                        .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() >= 300) {
-                log.warn("Gemini retornou status {}: {}", response.statusCode(), response.body());
-                throw new ValidacaoException("Erro ao chamar o assistente de IA (Gemini): " + response.statusCode());
-            }
+                if (response.statusCode() >= 300) {
+                    log.warn("Gemini retornou status {} (tentativa {}/{}): {}",
+                            response.statusCode(), tentativa, MAX_TENTATIVAS_GEMINI, response.body());
 
-            return objectMapper.readTree(response.body());
-        } catch (IOException | InterruptedException e) {
-            if (e instanceof InterruptedException) {
+                    boolean transitorio = response.statusCode() == 429 || response.statusCode() >= 500;
+                    if (transitorio && tentativa < MAX_TENTATIVAS_GEMINI) {
+                        aguardarAntesDeTentarNovamente(tentativa);
+                        continue;
+                    }
+                    throw new ValidacaoException("Erro ao chamar o assistente de IA (Gemini): " + response.statusCode());
+                }
+
+                return objectMapper.readTree(response.body());
+            } catch (IOException e) {
+                if (tentativa == MAX_TENTATIVAS_GEMINI) {
+                    throw new ValidacaoException("Não foi possível se comunicar com o assistente de IA.");
+                }
+                aguardarAntesDeTentarNovamente(tentativa);
+            } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                throw new ValidacaoException("Não foi possível se comunicar com o assistente de IA.");
             }
-            throw new ValidacaoException("Não foi possível se comunicar com o assistente de IA.");
+        }
+
+        throw new ValidacaoException("Não foi possível se comunicar com o assistente de IA.");
+    }
+
+    /**
+     * Espera curta antes de tentar de novo (1s, depois 2s) — só pra picos passageiros de
+     * demanda/latência do Gemini (status 429 ou 5xx). Não resolve cota diária esgotada.
+     */
+    private void aguardarAntesDeTentarNovamente(int tentativa) {
+        try {
+            Thread.sleep(1000L * tentativa);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

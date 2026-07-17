@@ -154,6 +154,23 @@ public class SprintService {
     }
 
     /**
+     * Últimas sprints concluídas em todos os projetos que o usuário acessa (usado no dashboard
+     * geral, que agrega vários projetos de uma vez).
+     */
+    public List<VelocidadeItemDTO> velocidadeGeral(Usuario autor) {
+        List<Long> projetoIds = projetoService.listarProjetosAcessiveis(autor).stream()
+                .map(Projeto::getId)
+                .toList();
+
+        return projetoIds.stream()
+                .flatMap(projetoId -> sprintRepository.findByProjetoIdAndStatus(projetoId, StatusSprint.CONCLUIDA).stream())
+                .sorted(Comparator.comparing(Sprint::getDataFim, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .limit(5)
+                .map(s -> new VelocidadeItemDTO(s.getId(), s.getNome(), calcularPontosConcluidos(s)))
+                .toList();
+    }
+
+    /**
      * Roda uma vez ao subir a aplicação e depois todo dia às 23h55, registrando o snapshot do
      * dia para toda sprint em andamento — mesmo padrão de NotificacaoService.verificarPrazosProximos.
      */

@@ -1,20 +1,31 @@
 import { api } from './client';
 import type {
+  AcaoAutomacao,
+  AnaliseRisco,
   Anexo,
+  AtividadeGithub,
   Burndown,
+  CategoriaDocumento,
   Comentario,
   Dashboard,
+  DisponibilidadeUsuario,
+  DocumentoProjeto,
   Empresa,
   Epico,
   HistoriaUsuario,
   HistoricoItem,
   Notificacao,
   Papel,
+  PerfilGamificacao,
   PlanoBacklogGerado,
   Projeto,
+  RankingItem,
+  RegraAutomacao,
   Sprint,
+  StatusGithub,
   StatusHistoria,
   StatusTarefa,
+  SugestaoResponsavel,
   Tag,
   Tarefa,
   Usuario,
@@ -58,6 +69,15 @@ export async function usuarioAtual() {
 
 export async function alterarPapel(usuarioId: number, papel: Papel) {
   const { data } = await api.put<Usuario>(`/usuarios/${usuarioId}/papel?papel=${papel}`);
+  return data;
+}
+
+export async function atualizarMeuPerfil(
+  cargo: string | null,
+  disponibilidade: DisponibilidadeUsuario,
+  habilidades: string[],
+) {
+  const { data } = await api.put<Usuario>('/usuarios/me', { cargo, disponibilidade, habilidades });
   return data;
 }
 
@@ -181,6 +201,18 @@ export async function baixarAnexo(anexoId: number, nomeArquivo: string) {
 export async function obterDashboard() {
   const { data } = await api.get<Dashboard>('/dashboard');
   return data;
+}
+
+export async function exportarRelatorioCsv() {
+  const response = await api.get('/dashboard/exportar-csv', { responseType: 'blob' });
+  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'relatorio-taskflow.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 export async function listarTags() {
@@ -338,5 +370,128 @@ export async function gerarPlanoBacklogComIA(projetoId: number, descricao: strin
     descricao,
     responsavelId,
   });
+  return data;
+}
+
+export async function analisarRiscosComIA(projetoId: number) {
+  const { data } = await api.post<AnaliseRisco>(`/ai/projetos/${projetoId}/analisar-riscos`);
+  return data;
+}
+
+export async function sugerirResponsavelComIA(projetoId: number, titulo: string, descricao: string) {
+  const { data } = await api.post<SugestaoResponsavel>(`/ai/projetos/${projetoId}/sugerir-responsavel`, {
+    titulo,
+    descricao,
+  });
+  return data;
+}
+
+export interface NovaAcaoAutomacao {
+  tipo: AcaoAutomacao['tipo'];
+  mensagem: string | null;
+  statusDestino: StatusTarefa | null;
+  tagId: number | null;
+}
+
+export interface NovaRegraAutomacao {
+  nome: string;
+  statusGatilho: StatusTarefa;
+  ativa: boolean;
+  acoes: NovaAcaoAutomacao[];
+}
+
+export async function listarAutomacoes(projetoId: number) {
+  const { data } = await api.get<RegraAutomacao[]>(`/projetos/${projetoId}/automacoes`);
+  return data;
+}
+
+export async function criarAutomacao(projetoId: number, regra: NovaRegraAutomacao) {
+  const { data } = await api.post<RegraAutomacao>(`/projetos/${projetoId}/automacoes`, regra);
+  return data;
+}
+
+export async function atualizarAutomacao(id: number, regra: NovaRegraAutomacao) {
+  const { data } = await api.put<RegraAutomacao>(`/automacoes/${id}`, regra);
+  return data;
+}
+
+export async function excluirAutomacao(id: number) {
+  await api.delete(`/automacoes/${id}`);
+}
+
+export interface NovoDocumento {
+  titulo: string;
+  categoria: CategoriaDocumento;
+  conteudo: string;
+}
+
+export async function listarDocumentos(projetoId: number) {
+  const { data } = await api.get<DocumentoProjeto[]>(`/projetos/${projetoId}/documentos`);
+  return data;
+}
+
+export async function criarDocumento(projetoId: number, documento: NovoDocumento) {
+  const { data } = await api.post<DocumentoProjeto>(`/projetos/${projetoId}/documentos`, documento);
+  return data;
+}
+
+export async function atualizarDocumento(id: number, documento: NovoDocumento) {
+  const { data } = await api.put<DocumentoProjeto>(`/documentos/${id}`, documento);
+  return data;
+}
+
+export async function excluirDocumento(id: number) {
+  await api.delete(`/documentos/${id}`);
+}
+
+export async function gerarDocumentoComIA(
+  projetoId: number,
+  titulo: string,
+  categoria: CategoriaDocumento,
+  instrucoes: string,
+) {
+  const { data } = await api.post<DocumentoProjeto>(`/ai/projetos/${projetoId}/gerar-documento`, {
+    titulo,
+    categoria,
+    instrucoes,
+  });
+  return data;
+}
+
+export async function obterPerfilGamificacao() {
+  const { data } = await api.get<PerfilGamificacao>('/gamificacao/me');
+  return data;
+}
+
+export async function obterRanking() {
+  const { data } = await api.get<RankingItem[]>('/gamificacao/ranking');
+  return data;
+}
+
+export async function statusGithub(projetoId: number) {
+  const { data } = await api.get<StatusGithub>(`/projetos/${projetoId}/github`);
+  return data;
+}
+
+export async function conectarGithub(
+  projetoId: number,
+  repositorioOwner: string,
+  repositorioNome: string,
+  tokenAcesso: string,
+) {
+  const { data } = await api.post<StatusGithub>(`/projetos/${projetoId}/github`, {
+    repositorioOwner,
+    repositorioNome,
+    tokenAcesso,
+  });
+  return data;
+}
+
+export async function desconectarGithub(projetoId: number) {
+  await api.delete(`/projetos/${projetoId}/github`);
+}
+
+export async function obterAtividadeGithub(tarefaId: number) {
+  const { data } = await api.get<AtividadeGithub>(`/tarefas/${tarefaId}/github`);
   return data;
 }

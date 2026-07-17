@@ -1,5 +1,6 @@
 package com.taskflow.backend.controller;
 
+import com.taskflow.backend.dto.usuario.UsuarioPerfilRequestDTO;
 import com.taskflow.backend.dto.usuario.UsuarioResponseDTO;
 import com.taskflow.backend.entity.Papel;
 import com.taskflow.backend.entity.Usuario;
@@ -38,7 +39,15 @@ public class UsuarioController {
         dto.setNome(usuario.getNome());
         dto.setEmail(usuario.getEmail());
         dto.setPapel(usuario.getPapel());
+        dto.setCargo(usuario.getCargo());
+        dto.setDisponibilidade(usuario.getDisponibilidade());
+        dto.setHabilidades(usuario.getHabilidades());
         return dto;
+    }
+
+    @PutMapping("/me")
+    public UsuarioResponseDTO atualizarPerfil(@RequestBody UsuarioPerfilRequestDTO dto) {
+        return usuarioService.atualizarPerfil(autenticacaoService.usuarioAutenticado(), dto);
     }
 
     @PutMapping("/{id}/papel")
