@@ -2,6 +2,7 @@ import { Box, Stack, Tooltip, Typography } from '@mui/material';
 import { NavLink, useLocation } from 'react-router-dom';
 import SpaceDashboardRoundedIcon from '@mui/icons-material/SpaceDashboardRounded';
 import FolderCopyRoundedIcon from '@mui/icons-material/FolderCopyRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import { palette } from '../theme/theme';
 import { Logo } from './Logo';
@@ -18,6 +19,12 @@ const NAV_ITEMS = [
     to: '/projetos',
     icon: FolderCopyRoundedIcon,
     match: (p: string) => p.startsWith('/projetos'),
+  },
+  {
+    label: 'Calendário',
+    to: '/calendario',
+    icon: CalendarMonthRoundedIcon,
+    match: (p: string) => p.startsWith('/calendario'),
   },
   {
     label: 'Perfil',

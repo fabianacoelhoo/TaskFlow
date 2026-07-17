@@ -84,6 +84,12 @@ public class TarefaService {
         return toResponseDTO(salva);
     }
 
+    public List<TarefaResponseDTO> listarTodas() {
+        return tarefaRepository.findAll().stream()
+                .map(this::toResponseDTO)
+                .toList();
+    }
+
     public List<TarefaResponseDTO> listarPorProjeto(Long projetoId) {
         return tarefaRepository.findByProjetoId(projetoId).stream()
                 .map(this::toResponseDTO)

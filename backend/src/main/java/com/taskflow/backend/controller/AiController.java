@@ -2,7 +2,9 @@ package com.taskflow.backend.controller;
 
 import com.taskflow.backend.dto.ai.GerarTarefasRequestDTO;
 import com.taskflow.backend.dto.ai.PerguntaRequestDTO;
+import com.taskflow.backend.dto.ai.PrazoSugeridoDTO;
 import com.taskflow.backend.dto.ai.RespostaIaDTO;
+import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
 import com.taskflow.backend.service.AiService;
 import org.springframework.web.bind.annotation.*;
@@ -29,5 +31,10 @@ public class AiController {
             @PathVariable Long projetoId,
             @RequestBody GerarTarefasRequestDTO dto) {
         return aiService.gerarTarefas(projetoId, dto);
+    }
+
+    @PostMapping("/sugerir-prazo")
+    public PrazoSugeridoDTO sugerirPrazo(@RequestBody SugerirPrazoRequestDTO dto) {
+        return aiService.sugerirPrazo(dto);
     }
 }

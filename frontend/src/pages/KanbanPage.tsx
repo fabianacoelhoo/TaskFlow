@@ -1,15 +1,30 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Box, Button, Chip, IconButton, Skeleton, Snackbar, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  Skeleton,
+  Snackbar,
+  Stack,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from '@mui/material';
 import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-pangea/dnd';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import ViewKanbanRoundedIcon from '@mui/icons-material/ViewKanbanRounded';
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { TaskCard } from '../components/TaskCard';
 import { TaskFormDialog } from '../components/TaskFormDialog';
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer';
 import { GerarTarefasIADialog } from '../components/GerarTarefasIADialog';
+import { CalendarView } from '../components/calendar/CalendarView';
 import {
   atualizarTarefa,
   listarProjetos,
@@ -36,6 +51,7 @@ export function KanbanPage() {
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
   const [erroArraste, setErroArraste] = useState<string | null>(null);
   const [dialogIaAberto, setDialogIaAberto] = useState(false);
+  const [visualizacao, setVisualizacao] = useState<'quadro' | 'calendario'>('quadro');
 
   function carregar() {
     Promise.all([listarTarefasPorProjeto(projetoId), listarUsuarios()]).then(
@@ -139,12 +155,37 @@ export function KanbanPage() {
         }
       />
 
+      {!carregando && (
+        <ToggleButtonGroup
+          value={visualizacao}
+          exclusive
+          onChange={(_, valor) => valor && setVisualizacao(valor)}
+          size="small"
+          sx={{ mb: 2.5 }}
+        >
+          <ToggleButton value="quadro" sx={{ px: 2, gap: 0.75 }}>
+            <ViewKanbanRoundedIcon sx={{ fontSize: 17 }} />
+            Quadro
+          </ToggleButton>
+          <ToggleButton value="calendario" sx={{ px: 2, gap: 0.75 }}>
+            <CalendarMonthRoundedIcon sx={{ fontSize: 17 }} />
+            Calendário
+          </ToggleButton>
+        </ToggleButtonGroup>
+      )}
+
       {carregando ? (
         <Stack direction="row" spacing={2.5}>
           {STATUS_ORDER.map((s) => (
             <Skeleton key={s} variant="rounded" height={400} sx={{ flex: 1, borderRadius: 4 }} />
           ))}
         </Stack>
+      ) : visualizacao === 'calendario' ? (
+        <CalendarView
+          tarefas={tarefas}
+          usuariosPorId={usuariosPorId}
+          onSelecionarTarefa={setTarefaSelecionada}
+        />
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} alignItems="flex-start">

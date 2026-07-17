@@ -6,6 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjetosPage } from './pages/ProjetosPage';
 import { KanbanPage } from './pages/KanbanPage';
+import { CalendarioPage } from './pages/CalendarioPage';
 import { PerfilPage } from './pages/PerfilPage';
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/projetos" element={<ProjetosPage />} />
         <Route path="/projetos/:id" element={<KanbanPage />} />
+        <Route path="/calendario" element={<CalendarioPage />} />
         <Route path="/perfil" element={<PerfilPage />} />
       </Route>
 

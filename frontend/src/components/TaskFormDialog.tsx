@@ -7,12 +7,23 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import type { StatusTarefa, Tag, Tarefa, Usuario } from '../api/types';
-import { criarTarefa, atualizarTarefa, trocarResponsavel, listarTags, criarTag } from '../api/resources';
+import {
+  criarTarefa,
+  atualizarTarefa,
+  trocarResponsavel,
+  listarTags,
+  criarTag,
+  sugerirPrazoComIA,
+} from '../api/resources';
 import { STATUS_LABEL, STATUS_ORDER } from '../theme/status';
 import { palette } from '../theme/theme';
 
@@ -49,6 +60,8 @@ export function TaskFormDialog({
   const [tagsDisponiveis, setTagsDisponiveis] = useState<Tag[]>([]);
   const [dependencias, setDependencias] = useState<Tarefa[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [sugerindoPrazo, setSugerindoPrazo] = useState(false);
+  const [justificativaPrazo, setJustificativaPrazo] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -82,8 +95,24 @@ export function TaskFormDialog({
       setTags([]);
       setDependencias([]);
     }
+    setJustificativaPrazo(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tarefaExistente, statusInicial, usuarios]);
+
+  async function sugerirPrazo() {
+    if (!titulo.trim() || responsavelId === '') return;
+    setSugerindoPrazo(true);
+    setJustificativaPrazo(null);
+    try {
+      const sugestao = await sugerirPrazoComIA(titulo, prioridade, responsavelId as number);
+      setPrazo(sugestao.prazo);
+      setJustificativaPrazo(sugestao.justificativa);
+    } catch {
+      setJustificativaPrazo('Não foi possível sugerir um prazo agora.');
+    } finally {
+      setSugerindoPrazo(false);
+    }
+  }
 
   async function handleNovaTag(nome: string) {
     const cor = CORES_TAG[tagsDisponiveis.length % CORES_TAG.length];
@@ -173,15 +202,35 @@ export function TaskFormDialog({
             </TextField>
           </Stack>
 
-          <Stack direction="row" spacing={2}>
+          <Stack direction="row" spacing={2} alignItems="flex-start">
             <TextField
               label="Prazo"
               type="date"
               value={prazo}
-              onChange={(e) => setPrazo(e.target.value)}
+              onChange={(e) => {
+                setPrazo(e.target.value);
+                setJustificativaPrazo(null);
+              }}
               fullWidth
               slotProps={{ inputLabel: { shrink: true } }}
             />
+            <Tooltip title="Sugerir prazo com IA">
+              <span>
+                <IconButton
+                  aria-label="Sugerir prazo com IA"
+                  onClick={sugerirPrazo}
+                  disabled={!titulo.trim() || responsavelId === '' || sugerindoPrazo}
+                  sx={{
+                    mt: 0.5,
+                    bgcolor: 'rgba(176,141,79,0.12)',
+                    color: palette.gold,
+                    '&:hover': { bgcolor: 'rgba(176,141,79,0.22)' },
+                  }}
+                >
+                  <AutoAwesomeRoundedIcon fontSize="small" />
+                </IconButton>
+              </span>
+            </Tooltip>
 
             <TextField
               select
@@ -197,6 +246,16 @@ export function TaskFormDialog({
               ))}
             </TextField>
           </Stack>
+
+          {(sugerindoPrazo || justificativaPrazo) && (
+            <Typography
+              variant="caption"
+              sx={{ color: palette.slate, display: 'flex', alignItems: 'center', gap: 0.5, mt: -1.5 }}
+            >
+              <AutoAwesomeRoundedIcon sx={{ fontSize: 13, color: palette.gold }} />
+              {sugerindoPrazo ? 'Analisando a carga de trabalho...' : justificativaPrazo}
+            </Typography>
+          )}
 
           <Autocomplete
             multiple

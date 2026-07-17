@@ -62,6 +62,11 @@ export async function listarTarefasPorProjeto(projetoId: number) {
   return data;
 }
 
+export async function listarTodasTarefas() {
+  const { data } = await api.get<Tarefa[]>('/tarefas');
+  return data;
+}
+
 export interface NovaTarefa {
   titulo: string;
   descricao: string;
@@ -180,6 +185,20 @@ export async function perguntarIA(pergunta: string) {
 export async function gerarTarefasComIA(projetoId: number, descricao: string, responsavelId: number) {
   const { data } = await api.post<Tarefa[]>(`/ai/projetos/${projetoId}/gerar-tarefas`, {
     descricao,
+    responsavelId,
+  });
+  return data;
+}
+
+export interface PrazoSugerido {
+  prazo: string;
+  justificativa: string;
+}
+
+export async function sugerirPrazoComIA(titulo: string, prioridade: string, responsavelId: number) {
+  const { data } = await api.post<PrazoSugerido>('/ai/sugerir-prazo', {
+    titulo,
+    prioridade,
     responsavelId,
   });
   return data;

@@ -26,6 +26,11 @@ public class TarefaController {
         return tarefaService.criar(tarefa, projetoId, responsavelId);
     }
 
+    @GetMapping
+    public List<TarefaResponseDTO> listarTodas() {
+        return tarefaService.listarTodas();
+    }
+
     @GetMapping("/projeto/{projetoId}")
     public List<TarefaResponseDTO> listarPorProjeto(@PathVariable Long projetoId) {
         return tarefaService.listarPorProjeto(projetoId);
