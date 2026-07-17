@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Chip,
   IconButton,
+  MenuItem,
+  Select,
   Skeleton,
   Snackbar,
   Stack,
@@ -18,6 +21,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ViewKanbanRoundedIcon from '@mui/icons-material/ViewKanbanRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
+import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { TaskCard } from '../components/TaskCard';
@@ -26,19 +30,23 @@ import { TaskDetailDrawer } from '../components/TaskDetailDrawer';
 import { GerarTarefasIADialog } from '../components/GerarTarefasIADialog';
 import { CalendarView } from '../components/calendar/CalendarView';
 import {
+  adicionarMembroProjeto,
   atualizarTarefa,
   listarProjetos,
   listarTarefasPorProjeto,
   listarUsuarios,
+  removerMembroProjeto,
 } from '../api/resources';
 import type { Projeto, StatusTarefa, Tarefa, Usuario } from '../api/types';
 import { STATUS_COLOR, STATUS_LABEL, STATUS_ORDER } from '../theme/status';
 import { palette } from '../theme/theme';
+import { useAuth } from '../auth/AuthContext';
 
 export function KanbanPage() {
   const { id } = useParams();
   const projetoId = Number(id);
   const navigate = useNavigate();
+  const { usuario } = useAuth();
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -76,6 +84,24 @@ export function KanbanPage() {
     usuarios.forEach((u) => mapa.set(u.id, u));
     return mapa;
   }, [usuarios]);
+
+  const podeGerenciarMembros =
+    usuario?.papel === 'ADMIN' || (projeto != null && projeto.criadoPorId === usuario?.id);
+
+  const membrosDisponiveis = useMemo(() => {
+    const idsAtuais = new Set((projeto?.membros ?? []).map((m) => m.id));
+    return usuarios.filter((u) => !idsAtuais.has(u.id));
+  }, [usuarios, projeto]);
+
+  async function handleAdicionarMembro(usuarioId: number) {
+    const atualizado = await adicionarMembroProjeto(projetoId, usuarioId);
+    setProjeto(atualizado);
+  }
+
+  async function handleRemoverMembro(usuarioId: number) {
+    const atualizado = await removerMembroProjeto(projetoId, usuarioId);
+    setProjeto(atualizado);
+  }
 
   const colunas = useMemo(() => {
     const grupos: Record<StatusTarefa, Tarefa[]> = {
@@ -154,6 +180,52 @@ export function KanbanPage() {
           </Button>
         }
       />
+
+      {projeto && (
+        <Stack direction="row" alignItems="center" flexWrap="wrap" spacing={1} sx={{ mb: 2.5 }}>
+          <Typography variant="caption" sx={{ color: palette.slateLight, fontWeight: 600 }}>
+            Membros:
+          </Typography>
+          {projeto.membros.map((membro) => (
+            <Chip
+              key={membro.id}
+              size="small"
+              avatar={
+                <Avatar sx={{ bgcolor: palette.ink, color: palette.ivory, fontSize: '0.65rem' }}>
+                  {membro.nome.slice(0, 1).toUpperCase()}
+                </Avatar>
+              }
+              label={membro.nome}
+              onDelete={
+                podeGerenciarMembros && membro.id !== projeto.criadoPorId
+                  ? () => handleRemoverMembro(membro.id)
+                  : undefined
+              }
+            />
+          ))}
+          {podeGerenciarMembros && membrosDisponiveis.length > 0 && (
+            <Select
+              size="small"
+              displayEmpty
+              value=""
+              onChange={(e) => handleAdicionarMembro(Number(e.target.value))}
+              renderValue={() => (
+                <Stack direction="row" alignItems="center" spacing={0.5}>
+                  <PersonAddRoundedIcon sx={{ fontSize: 16 }} />
+                  <span>Adicionar</span>
+                </Stack>
+              )}
+              sx={{ minWidth: 140, height: 32, fontSize: '0.8rem' }}
+            >
+              {membrosDisponiveis.map((u) => (
+                <MenuItem key={u.id} value={u.id}>
+                  {u.nome}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+        </Stack>
+      )}
 
       {!carregando && (
         <ToggleButtonGroup

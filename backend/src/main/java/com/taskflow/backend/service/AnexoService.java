@@ -3,6 +3,7 @@ package com.taskflow.backend.service;
 import com.taskflow.backend.dto.anexo.AnexoResponseDTO;
 import com.taskflow.backend.entity.Anexo;
 import com.taskflow.backend.entity.Tarefa;
+import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.repository.AnexoRepository;
 import com.taskflow.backend.repository.TarefaRepository;
@@ -29,17 +30,20 @@ public class AnexoService {
     private final AnexoRepository anexoRepository;
     private final TarefaRepository tarefaRepository;
     private final HistoricoService historicoService;
+    private final ProjetoService projetoService;
     private final AutenticacaoService autenticacaoService;
     private final Path diretorioUpload;
 
     public AnexoService(AnexoRepository anexoRepository,
                          TarefaRepository tarefaRepository,
                          HistoricoService historicoService,
+                         ProjetoService projetoService,
                          AutenticacaoService autenticacaoService,
                          @Value("${app.upload-dir:uploads}") String uploadDir) {
         this.anexoRepository = anexoRepository;
         this.tarefaRepository = tarefaRepository;
         this.historicoService = historicoService;
+        this.projetoService = projetoService;
         this.autenticacaoService = autenticacaoService;
         this.diretorioUpload = Paths.get(uploadDir).toAbsolutePath().normalize();
 
@@ -54,6 +58,9 @@ public class AnexoService {
 
         Tarefa tarefa = tarefaRepository.findById(tarefaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
+
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        projetoService.verificarAcesso(autor, tarefa.getProjeto());
 
         String nomeOriginal = Paths.get(
                         Objects.requireNonNullElse(arquivo.getOriginalFilename(), "arquivo"))
@@ -80,16 +87,16 @@ public class AnexoService {
 
         Anexo salvo = anexoRepository.save(anexo);
 
-        historicoService.registrar(tarefa, autenticacaoService.usuarioAutenticado(),
-                "Anexo adicionado: " + nomeOriginal);
+        historicoService.registrar(tarefa, autor, "Anexo adicionado: " + nomeOriginal);
 
         return toResponseDTO(salvo);
     }
 
     public List<AnexoResponseDTO> listarPorTarefa(Long tarefaId) {
-        if (!tarefaRepository.existsById(tarefaId)) {
-            throw new RecursoNaoEncontradoException("Tarefa não encontrada");
-        }
+        Tarefa tarefa = tarefaRepository.findById(tarefaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
+
+        projetoService.verificarAcesso(autenticacaoService.usuarioAutenticado(), tarefa.getProjeto());
 
         return anexoRepository.findByTarefaId(tarefaId).stream()
                 .map(this::toResponseDTO)
@@ -97,8 +104,12 @@ public class AnexoService {
     }
 
     public Anexo buscarPorId(Long id) {
-        return anexoRepository.findById(id)
+        Anexo anexo = anexoRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Anexo não encontrado"));
+
+        projetoService.verificarAcesso(autenticacaoService.usuarioAutenticado(), anexo.getTarefa().getProjeto());
+
+        return anexo;
     }
 
     public Resource carregarArquivo(Anexo anexo) {

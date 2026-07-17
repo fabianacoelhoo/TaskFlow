@@ -11,7 +11,6 @@ import com.taskflow.backend.entity.Tarefa;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.exception.ValidacaoException;
-import com.taskflow.backend.repository.ProjetoRepository;
 import com.taskflow.backend.repository.TagRepository;
 import com.taskflow.backend.repository.TarefaRepository;
 import com.taskflow.backend.repository.UsuarioRepository;
@@ -21,12 +20,13 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class TarefaService {
 
     private final TarefaRepository tarefaRepository;
-    private final ProjetoRepository projetoRepository;
+    private final ProjetoService projetoService;
     private final UsuarioRepository usuarioRepository;
     private final TagRepository tagRepository;
     private final HistoricoService historicoService;
@@ -34,14 +34,14 @@ public class TarefaService {
     private final AutenticacaoService autenticacaoService;
 
     public TarefaService(TarefaRepository tarefaRepository,
-                         ProjetoRepository projetoRepository,
+                         ProjetoService projetoService,
                          UsuarioRepository usuarioRepository,
                          TagRepository tagRepository,
                          HistoricoService historicoService,
                          NotificacaoService notificacaoService,
                          AutenticacaoService autenticacaoService) {
         this.tarefaRepository = tarefaRepository;
-        this.projetoRepository = projetoRepository;
+        this.projetoService = projetoService;
         this.usuarioRepository = usuarioRepository;
         this.tagRepository = tagRepository;
         this.historicoService = historicoService;
@@ -51,11 +51,14 @@ public class TarefaService {
 
     public TarefaResponseDTO criar(TarefaRequestDTO dto, Long projetoId, Long responsavelId) {
 
-        Projeto projeto = projetoRepository.findById(projetoId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Projeto não encontrado"));
+        Projeto projeto = projetoService.buscarPorId(projetoId);
 
         Usuario usuario = usuarioRepository.findById(responsavelId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado"));
+
+        if (!usuario.getEmpresa().getId().equals(projeto.getEmpresa().getId())) {
+            throw new RecursoNaoEncontradoException("Usuário não encontrado");
+        }
 
         Tarefa tarefa = new Tarefa();
         tarefa.setTitulo(dto.getTitulo());
@@ -65,8 +68,8 @@ public class TarefaService {
         tarefa.setPrazo(dto.getPrazo());
         tarefa.setProjeto(projeto);
         tarefa.setResponsavel(usuario);
-        tarefa.setTags(buscarTags(dto.getTagIds()));
-        tarefa.setDependencias(buscarDependencias(dto.getDependenciaIds()));
+        tarefa.setTags(buscarTags(dto.getTagIds(), projeto.getEmpresa().getId()));
+        tarefa.setDependencias(buscarDependencias(dto.getDependenciaIds(), projeto.getEmpresa().getId()));
 
         if (tarefa.getStatus() == StatusTarefa.CONCLUIDO) {
             validarDependenciasConcluidas(tarefa.getDependencias());
@@ -85,19 +88,32 @@ public class TarefaService {
     }
 
     public List<TarefaResponseDTO> listarTodas() {
-        return tarefaRepository.findAll().stream()
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        List<Long> projetoIds = projetoService.listarProjetosAcessiveis(autor).stream()
+                .map(Projeto::getId)
+                .toList();
+
+        return tarefaRepository.findByProjetoIdIn(projetoIds).stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
 
     public List<TarefaResponseDTO> listarPorProjeto(Long projetoId) {
+        projetoService.buscarPorId(projetoId);
+
         return tarefaRepository.findByProjetoId(projetoId).stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
 
     public List<TarefaResponseDTO> listarPorResponsavel(Long usuarioId) {
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        List<Long> projetoIds = projetoService.listarProjetosAcessiveis(autor).stream()
+                .map(Projeto::getId)
+                .toList();
+
         return tarefaRepository.findByResponsavelId(usuarioId).stream()
+                .filter(t -> projetoIds.contains(t.getProjeto().getId()))
                 .map(this::toResponseDTO)
                 .toList();
     }
@@ -107,6 +123,9 @@ public class TarefaService {
         Tarefa tarefa = tarefaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
 
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        projetoService.verificarAcesso(autor, tarefa.getProjeto());
+
         StatusTarefa statusAnterior = tarefa.getStatus();
 
         tarefa.setTitulo(dto.getTitulo());
@@ -114,9 +133,9 @@ public class TarefaService {
         tarefa.setStatus(dto.getStatus());
         tarefa.setPrioridade(dto.getPrioridade());
         tarefa.setPrazo(dto.getPrazo());
-        tarefa.setTags(buscarTags(dto.getTagIds()));
+        tarefa.setTags(buscarTags(dto.getTagIds(), tarefa.getProjeto().getEmpresa().getId()));
 
-        List<Tarefa> dependencias = buscarDependencias(dto.getDependenciaIds());
+        List<Tarefa> dependencias = buscarDependencias(dto.getDependenciaIds(), tarefa.getProjeto().getEmpresa().getId());
         if (dependencias.stream().anyMatch(dep -> dep.getId().equals(id))) {
             throw new ValidacaoException("Uma tarefa não pode depender de si mesma.");
         }
@@ -128,7 +147,6 @@ public class TarefaService {
 
         Tarefa salva = tarefaRepository.save(tarefa);
 
-        Usuario autor = autenticacaoService.usuarioAutenticado();
         if (!Objects.equals(statusAnterior, salva.getStatus())) {
             historicoService.registrar(salva, autor,
                     "Status alterado de '" + statusAnterior + "' para '" + salva.getStatus() + "'");
@@ -144,16 +162,22 @@ public class TarefaService {
         Tarefa tarefa = tarefaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
 
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        projetoService.verificarAcesso(autor, tarefa.getProjeto());
+
         Usuario responsavelAnterior = tarefa.getResponsavel();
 
         Usuario novoResponsavel = usuarioRepository.findById(novoResponsavelId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado"));
 
+        if (!novoResponsavel.getEmpresa().getId().equals(tarefa.getProjeto().getEmpresa().getId())) {
+            throw new RecursoNaoEncontradoException("Usuário não encontrado");
+        }
+
         tarefa.setResponsavel(novoResponsavel);
 
         Tarefa salva = tarefaRepository.save(tarefa);
 
-        Usuario autor = autenticacaoService.usuarioAutenticado();
         historicoService.registrar(salva, autor,
                 "Responsável alterado de '" + responsavelAnterior.getNome() + "' para '" + novoResponsavel.getNome() + "'");
 
@@ -165,21 +189,31 @@ public class TarefaService {
     }
 
     public void excluir(Long id) {
-        tarefaRepository.deleteById(id);
+        Tarefa tarefa = tarefaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
+
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        projetoService.verificarAcesso(autor, tarefa.getProjeto());
+
+        tarefaRepository.delete(tarefa);
     }
 
-    private List<Tag> buscarTags(List<Long> tagIds) {
+    private List<Tag> buscarTags(List<Long> tagIds, Long empresaId) {
         if (tagIds == null || tagIds.isEmpty()) {
             return new ArrayList<>();
         }
-        return new ArrayList<>(tagRepository.findByIdIn(tagIds));
+        return tagRepository.findByIdIn(tagIds).stream()
+                .filter(tag -> tag.getEmpresa().getId().equals(empresaId))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    private List<Tarefa> buscarDependencias(List<Long> dependenciaIds) {
+    private List<Tarefa> buscarDependencias(List<Long> dependenciaIds, Long empresaId) {
         if (dependenciaIds == null || dependenciaIds.isEmpty()) {
             return new ArrayList<>();
         }
-        return new ArrayList<>(tarefaRepository.findAllById(dependenciaIds));
+        return tarefaRepository.findAllById(dependenciaIds).stream()
+                .filter(dep -> dep.getProjeto().getEmpresa().getId().equals(empresaId))
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private void validarDependenciasConcluidas(List<Tarefa> dependencias) {

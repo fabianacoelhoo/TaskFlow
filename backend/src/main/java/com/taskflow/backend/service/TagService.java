@@ -3,7 +3,9 @@ package com.taskflow.backend.service;
 import com.taskflow.backend.dto.tag.TagRequestDTO;
 import com.taskflow.backend.dto.tag.TagResponseDTO;
 import com.taskflow.backend.entity.Tag;
+import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.repository.TagRepository;
+import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,23 +14,29 @@ import java.util.List;
 public class TagService {
 
     private final TagRepository tagRepository;
+    private final AutenticacaoService autenticacaoService;
 
-    public TagService(TagRepository tagRepository) {
+    public TagService(TagRepository tagRepository, AutenticacaoService autenticacaoService) {
         this.tagRepository = tagRepository;
+        this.autenticacaoService = autenticacaoService;
     }
 
     public List<TagResponseDTO> listar() {
-        return tagRepository.findAll().stream()
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        return tagRepository.findByEmpresaId(autor.getEmpresa().getId()).stream()
                 .map(this::toResponseDTO)
                 .toList();
     }
 
     public TagResponseDTO criar(TagRequestDTO dto) {
-        Tag tag = tagRepository.findByNomeIgnoreCase(dto.getNome())
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+
+        Tag tag = tagRepository.findByNomeIgnoreCaseAndEmpresaId(dto.getNome(), autor.getEmpresa().getId())
                 .orElseGet(() -> {
                     Tag nova = new Tag();
                     nova.setNome(dto.getNome());
                     nova.setCor(dto.getCor());
+                    nova.setEmpresa(autor.getEmpresa());
                     return tagRepository.save(nova);
                 });
 

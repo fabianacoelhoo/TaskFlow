@@ -1,5 +1,6 @@
 package com.taskflow.backend.controller;
 
+import com.taskflow.backend.dto.projeto.AdicionarMembroRequestDTO;
 import com.taskflow.backend.dto.projeto.ProjetoRequestDTO;
 import com.taskflow.backend.dto.projeto.ProjetoResponseDTO;
 import com.taskflow.backend.service.ProjetoService;
@@ -28,23 +29,39 @@ public class ProjetoController {
     @GetMapping
     public List<ProjetoResponseDTO> listar() {
         return projetoService.listarProjetos();
-}
+    }
 
-@GetMapping("/{id}")
-public ProjetoResponseDTO buscarPorId(@PathVariable Long id) {
-    return projetoService.buscarDTOPorId(id);
-}
+    @GetMapping("/{id}")
+    public ProjetoResponseDTO buscarPorId(@PathVariable Long id) {
+        return projetoService.buscarDTOPorId(id);
+    }
 
-@PutMapping("/{id}")
-public ProjetoResponseDTO atualizar(
-        @PathVariable Long id,
-        @RequestBody ProjetoRequestDTO dto) {
+    @PutMapping("/{id}")
+    public ProjetoResponseDTO atualizar(
+            @PathVariable Long id,
+            @RequestBody ProjetoRequestDTO dto) {
 
-    return projetoService.atualizar(id, dto);
-}
+        return projetoService.atualizar(id, dto);
+    }
 
-@DeleteMapping("/{id}")
-public void excluir(@PathVariable Long id) {
-    projetoService.excluir(id);
-}
+    @DeleteMapping("/{id}")
+    public void excluir(@PathVariable Long id) {
+        projetoService.excluir(id);
+    }
+
+    @PostMapping("/{id}/membros")
+    public ProjetoResponseDTO adicionarMembro(
+            @PathVariable Long id,
+            @RequestBody AdicionarMembroRequestDTO dto) {
+
+        return projetoService.adicionarMembro(id, dto.getUsuarioId());
+    }
+
+    @DeleteMapping("/{id}/membros/{usuarioId}")
+    public ProjetoResponseDTO removerMembro(
+            @PathVariable Long id,
+            @PathVariable Long usuarioId) {
+
+        return projetoService.removerMembro(id, usuarioId);
+    }
 }

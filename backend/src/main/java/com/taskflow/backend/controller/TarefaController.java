@@ -26,6 +26,7 @@ public class TarefaController {
         return tarefaService.criar(tarefa, projetoId, responsavelId);
     }
 
+    
     @GetMapping
     public List<TarefaResponseDTO> listarTodas() {
         return tarefaService.listarTodas();

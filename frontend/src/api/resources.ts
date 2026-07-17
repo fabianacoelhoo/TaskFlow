@@ -3,6 +3,7 @@ import type {
   Anexo,
   Comentario,
   Dashboard,
+  Empresa,
   HistoricoItem,
   Notificacao,
   Papel,
@@ -18,8 +19,23 @@ export async function login(email: string, senha: string) {
   return data;
 }
 
-export async function registrar(nome: string, email: string, senha: string) {
-  const { data } = await api.post<Usuario>('/usuarios', { nome, email, senha });
+export async function registrarEmpresa(nomeEmpresa: string, nome: string, email: string, senha: string) {
+  const { data } = await api.post<Usuario>('/auth/registrar-empresa', { nomeEmpresa, nome, email, senha });
+  return data;
+}
+
+export async function registrarComCodigo(codigoConvite: string, nome: string, email: string, senha: string) {
+  const { data } = await api.post<Usuario>('/auth/registrar-com-codigo', { codigoConvite, nome, email, senha });
+  return data;
+}
+
+export async function obterEmpresa() {
+  const { data } = await api.get<Empresa>('/empresas/me');
+  return data;
+}
+
+export async function regenerarCodigoConvite() {
+  const { data } = await api.post<Empresa>('/empresas/codigo-convite/regenerar');
   return data;
 }
 
@@ -55,6 +71,16 @@ export async function atualizarProjeto(id: number, nome: string, descricao: stri
 
 export async function excluirProjeto(id: number) {
   await api.delete(`/projetos/${id}`);
+}
+
+export async function adicionarMembroProjeto(projetoId: number, usuarioId: number) {
+  const { data } = await api.post<Projeto>(`/projetos/${projetoId}/membros`, { usuarioId });
+  return data;
+}
+
+export async function removerMembroProjeto(projetoId: number, usuarioId: number) {
+  const { data } = await api.delete<Projeto>(`/projetos/${projetoId}/membros/${usuarioId}`);
+  return data;
 }
 
 export async function listarTarefasPorProjeto(projetoId: number) {

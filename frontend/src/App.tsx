@@ -8,6 +8,7 @@ import { ProjetosPage } from './pages/ProjetosPage';
 import { KanbanPage } from './pages/KanbanPage';
 import { CalendarioPage } from './pages/CalendarioPage';
 import { PerfilPage } from './pages/PerfilPage';
+import { EmpresaPage } from './pages/EmpresaPage';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/projetos/:id" element={<KanbanPage />} />
         <Route path="/calendario" element={<CalendarioPage />} />
         <Route path="/perfil" element={<PerfilPage />} />
+        <Route path="/empresa" element={<EmpresaPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

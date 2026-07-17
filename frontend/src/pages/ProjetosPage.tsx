@@ -246,7 +246,7 @@ export function ProjetosPage() {
         <MenuItem onClick={() => menuAnchor && abrirEdicao(menuAnchor.projeto)}>
           <EditRoundedIcon fontSize="small" sx={{ mr: 1.5 }} /> Editar
         </MenuItem>
-        {ehAdmin && (
+        {menuAnchor && (ehAdmin || menuAnchor.projeto.criadoPorId === usuario?.id) && (
           <MenuItem
             onClick={() => menuAnchor && excluir(menuAnchor.projeto)}
             sx={{ color: palette.danger }}

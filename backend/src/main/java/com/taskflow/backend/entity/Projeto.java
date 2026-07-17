@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "projetos")
@@ -23,8 +25,19 @@ public class Projeto {
 
     private LocalDate dataFim;
 
+    @ManyToOne
+    @JoinColumn(name = "empresa_id", nullable = false)
+    private Empresa empresa;
 
     @ManyToOne
     @JoinColumn(name = "criado_por")
     private Usuario criadoPor;
+
+    @ManyToMany
+    @JoinTable(
+            name = "projeto_membros",
+            joinColumns = @JoinColumn(name = "projeto_id"),
+            inverseJoinColumns = @JoinColumn(name = "usuario_id")
+    )
+    private List<Usuario> membros = new ArrayList<>();
 }

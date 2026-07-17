@@ -4,8 +4,10 @@ import SpaceDashboardRoundedIcon from '@mui/icons-material/SpaceDashboardRounded
 import FolderCopyRoundedIcon from '@mui/icons-material/FolderCopyRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import { palette } from '../theme/theme';
 import { Logo } from './Logo';
+import { useAuth } from '../auth/AuthContext';
 
 const NAV_ITEMS = [
   {
@@ -34,10 +36,19 @@ const NAV_ITEMS = [
   },
 ];
 
+const NAV_ITEM_EMPRESA = {
+  label: 'Empresa',
+  to: '/empresa',
+  icon: ApartmentRoundedIcon,
+  match: (p: string) => p.startsWith('/empresa'),
+};
+
 const SIDEBAR_WIDTH = 248;
 
 export function Sidebar() {
   const location = useLocation();
+  const { usuario } = useAuth();
+  const itens = usuario?.papel === 'ADMIN' ? [...NAV_ITEMS, NAV_ITEM_EMPRESA] : NAV_ITEMS;
 
   return (
     <Box
@@ -61,7 +72,7 @@ export function Sidebar() {
       </Box>
 
       <Stack spacing={0.5} sx={{ flex: 1 }}>
-        {NAV_ITEMS.map(({ label, to, icon: Icon, match }) => {
+        {itens.map(({ label, to, icon: Icon, match }) => {
           const active = match(location.pathname);
           return (
             <Tooltip key={to} title={label} placement="right" arrow disableInteractive>

@@ -11,6 +11,8 @@ public interface TarefaRepository extends JpaRepository<Tarefa, Long> {
 
     List<Tarefa> findByProjetoId(Long projetoId);
 
+    List<Tarefa> findByProjetoIdIn(List<Long> projetoIds);
+
     List<Tarefa> findByResponsavelId(Long usuarioId);
 
     long countByStatus(StatusTarefa status);

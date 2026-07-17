@@ -7,6 +7,7 @@ import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.repository.HistoricoRepository;
 import com.taskflow.backend.repository.TarefaRepository;
+import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -17,10 +18,17 @@ public class HistoricoService {
 
     private final HistoricoRepository historicoRepository;
     private final TarefaRepository tarefaRepository;
+    private final ProjetoService projetoService;
+    private final AutenticacaoService autenticacaoService;
 
-    public HistoricoService(HistoricoRepository historicoRepository, TarefaRepository tarefaRepository) {
+    public HistoricoService(HistoricoRepository historicoRepository,
+                             TarefaRepository tarefaRepository,
+                             ProjetoService projetoService,
+                             AutenticacaoService autenticacaoService) {
         this.historicoRepository = historicoRepository;
         this.tarefaRepository = tarefaRepository;
+        this.projetoService = projetoService;
+        this.autenticacaoService = autenticacaoService;
     }
 
     public void registrar(Tarefa tarefa, Usuario usuario, String acao) {
@@ -34,9 +42,10 @@ public class HistoricoService {
     }
 
     public List<HistoricoResponseDTO> listarPorTarefa(Long tarefaId) {
-        if (!tarefaRepository.existsById(tarefaId)) {
-            throw new RecursoNaoEncontradoException("Tarefa não encontrada");
-        }
+        Tarefa tarefa = tarefaRepository.findById(tarefaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
+
+        projetoService.verificarAcesso(autenticacaoService.usuarioAutenticado(), tarefa.getProjeto());
 
         return historicoRepository.findByTarefaIdOrderByDataAsc(tarefaId).stream()
                 .map(this::toResponseDTO)

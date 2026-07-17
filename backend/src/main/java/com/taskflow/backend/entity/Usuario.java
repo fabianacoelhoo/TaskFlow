@@ -21,4 +21,8 @@ public class Usuario {
 
     @Enumerated(EnumType.STRING)
     private Papel papel;
+
+    @ManyToOne
+    @JoinColumn(name = "empresa_id", nullable = false)
+    private Empresa empresa;
 }

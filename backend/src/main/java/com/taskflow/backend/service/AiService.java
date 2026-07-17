@@ -18,9 +18,9 @@ import com.taskflow.backend.entity.Tarefa;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
 import com.taskflow.backend.exception.ValidacaoException;
-import com.taskflow.backend.repository.ProjetoRepository;
 import com.taskflow.backend.repository.TarefaRepository;
 import com.taskflow.backend.repository.UsuarioRepository;
+import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -41,10 +41,11 @@ public class AiService {
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
-    private final ProjetoRepository projetoRepository;
+    private final ProjetoService projetoService;
     private final TarefaRepository tarefaRepository;
     private final TarefaService tarefaService;
     private final UsuarioRepository usuarioRepository;
+    private final AutenticacaoService autenticacaoService;
 
     private final String apiKey;
     private final String model;
@@ -52,19 +53,21 @@ public class AiService {
 
     public AiService(HttpClient httpClient,
                       ObjectMapper objectMapper,
-                      ProjetoRepository projetoRepository,
+                      ProjetoService projetoService,
                       TarefaRepository tarefaRepository,
                       TarefaService tarefaService,
                       UsuarioRepository usuarioRepository,
+                      AutenticacaoService autenticacaoService,
                       @Value("${gemini.api-key}") String apiKey,
                       @Value("${gemini.model}") String model,
                       @Value("${gemini.base-url}") String baseUrl) {
         this.httpClient = httpClient;
         this.objectMapper = objectMapper;
-        this.projetoRepository = projetoRepository;
+        this.projetoService = projetoService;
         this.tarefaRepository = tarefaRepository;
         this.tarefaService = tarefaService;
         this.usuarioRepository = usuarioRepository;
+        this.autenticacaoService = autenticacaoService;
         this.apiKey = apiKey;
         this.model = model;
         this.baseUrl = baseUrl;
@@ -80,7 +83,8 @@ public class AiService {
     public String perguntar(String pergunta) {
         garantirChaveConfigurada();
 
-        String contexto = montarContextoAtual();
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        String contexto = montarContextoAtual(autor);
         String sistema = """
                 Você é o AI Project Manager do TaskFlow, um assistente que ajuda a equipe a \
                 entender o andamento dos projetos. Responda SOMENTE com base nos dados fornecidos, \
@@ -94,8 +98,7 @@ public class AiService {
     public List<TarefaResponseDTO> gerarTarefas(Long projetoId, GerarTarefasRequestDTO dto) {
         garantirChaveConfigurada();
 
-        Projeto projeto = projetoRepository.findById(projetoId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Projeto não encontrado"));
+        Projeto projeto = projetoService.buscarPorId(projetoId);
 
         String sistema = """
                 Você é um gerente de projetos de software sênior. Quebre a ideia descrita pelo \
@@ -125,8 +128,14 @@ public class AiService {
     public PrazoSugeridoDTO sugerirPrazo(SugerirPrazoRequestDTO dto) {
         garantirChaveConfigurada();
 
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+
         Usuario responsavel = usuarioRepository.findById(dto.getResponsavelId())
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuário não encontrado"));
+
+        if (!responsavel.getEmpresa().getId().equals(autor.getEmpresa().getId())) {
+            throw new RecursoNaoEncontradoException("Usuário não encontrado");
+        }
 
         LocalDate hoje = LocalDate.now();
 
@@ -300,9 +309,10 @@ public class AiService {
         return node;
     }
 
-    private String montarContextoAtual() {
-        List<Projeto> projetos = projetoRepository.findAll();
-        List<Tarefa> tarefas = tarefaRepository.findAll();
+    private String montarContextoAtual(Usuario autor) {
+        List<Projeto> projetos = projetoService.listarProjetosAcessiveis(autor);
+        List<Long> projetoIds = projetos.stream().map(Projeto::getId).toList();
+        List<Tarefa> tarefas = tarefaRepository.findByProjetoIdIn(projetoIds);
         LocalDate hoje = LocalDate.now();
 
         StringBuilder sb = new StringBuilder();

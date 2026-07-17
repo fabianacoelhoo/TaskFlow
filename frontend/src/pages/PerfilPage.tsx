@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -6,20 +5,15 @@ import {
   Card,
   CardContent,
   Chip,
-  MenuItem,
-  Select,
   Stack,
   Typography,
 } from '@mui/material';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { Reveal } from '../components/Reveal';
 import { useAuth } from '../auth/AuthContext';
 import { palette } from '../theme/theme';
-import { alterarPapel, listarUsuarios } from '../api/resources';
-import type { Papel, Usuario } from '../api/types';
 
 function iniciaisDe(nome?: string) {
   return (nome ?? '?')
@@ -32,20 +26,6 @@ function iniciaisDe(nome?: string) {
 export function PerfilPage() {
   const { usuario, sair } = useAuth();
   const navigate = useNavigate();
-  const [equipe, setEquipe] = useState<Usuario[]>([]);
-
-  const ehAdmin = usuario?.papel === 'ADMIN';
-
-  useEffect(() => {
-    if (ehAdmin) {
-      listarUsuarios().then(setEquipe);
-    }
-  }, [ehAdmin]);
-
-  async function handleAlterarPapel(usuarioId: number, papel: Papel) {
-    const atualizado = await alterarPapel(usuarioId, papel);
-    setEquipe((atual) => atual.map((u) => (u.id === usuarioId ? atualizado : u)));
-  }
 
   return (
     <Box>
@@ -117,74 +97,6 @@ export function PerfilPage() {
             </CardContent>
           </Card>
         </Reveal>
-
-        {ehAdmin && (
-          <Reveal delay={0.1}>
-            <Card elevation={0}>
-              <CardContent sx={{ p: 3 }}>
-                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
-                  <Box
-                    sx={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: 'rgba(176,141,79,0.14)',
-                      color: palette.gold,
-                    }}
-                  >
-                    <GroupsRoundedIcon fontSize="small" />
-                  </Box>
-                  <Typography variant="subtitle1">Equipe</Typography>
-                </Stack>
-                <Typography variant="body2" sx={{ mb: 2.5 }}>
-                  Como administradora, você pode promover ou rebaixar membros da equipe.
-                </Typography>
-
-                <Stack spacing={0.5}>
-                  {equipe.map((u) => (
-                    <Stack
-                      key={u.id}
-                      direction="row"
-                      alignItems="center"
-                      spacing={1.5}
-                      sx={{
-                        p: 1,
-                        borderRadius: 2,
-                        transition: 'background-color 0.15s ease',
-                        '&:hover': { bgcolor: 'rgba(15,28,46,0.03)' },
-                      }}
-                    >
-                      <Avatar sx={{ width: 32, height: 32, fontSize: '0.75rem', bgcolor: palette.ink, color: palette.ivory }}>
-                        {iniciaisDe(u.nome)}
-                      </Avatar>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-                          {u.nome}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: palette.slateLight }} noWrap>
-                          {u.email}
-                        </Typography>
-                      </Box>
-                      <Select
-                        size="small"
-                        value={u.papel ?? 'MEMBRO'}
-                        onChange={(e) => handleAlterarPapel(u.id, e.target.value as Papel)}
-                        disabled={u.id === usuario?.id}
-                        sx={{ minWidth: 120 }}
-                      >
-                        <MenuItem value="MEMBRO">Membro</MenuItem>
-                        <MenuItem value="ADMIN">Admin</MenuItem>
-                      </Select>
-                    </Stack>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Reveal>
-        )}
       </Stack>
     </Box>
   );

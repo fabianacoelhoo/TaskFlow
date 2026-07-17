@@ -9,12 +9,20 @@ export interface Usuario {
   papel: Papel | null;
 }
 
+export interface Empresa {
+  id: number;
+  nome: string;
+  codigoConvite: string | null;
+}
+
 export interface Projeto {
   id: number;
   nome: string;
   descricao: string;
   totalTarefas: number;
   tarefasConcluidas: number;
+  criadoPorId: number | null;
+  membros: Usuario[];
 }
 
 export interface Tag {

@@ -1,13 +1,11 @@
 package com.taskflow.backend.controller;
 
-import com.taskflow.backend.dto.usuario.UsuarioRequestDTO;
 import com.taskflow.backend.dto.usuario.UsuarioResponseDTO;
 import com.taskflow.backend.entity.Papel;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.security.AutenticacaoService;
 import com.taskflow.backend.service.UsuarioService;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,17 +22,6 @@ public class UsuarioController {
     public UsuarioController(UsuarioService usuarioService, AutenticacaoService autenticacaoService) {
         this.usuarioService = usuarioService;
         this.autenticacaoService = autenticacaoService;
-    }
-
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public UsuarioResponseDTO criar(
-            @RequestBody UsuarioRequestDTO dto
-    ){
-
-        return usuarioService.criarUsuario(dto);
-
     }
 
     @GetMapping

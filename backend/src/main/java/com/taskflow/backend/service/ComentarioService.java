@@ -20,15 +20,18 @@ public class ComentarioService {
     private final ComentarioRepository comentarioRepository;
     private final TarefaRepository tarefaRepository;
     private final NotificacaoService notificacaoService;
+    private final ProjetoService projetoService;
     private final AutenticacaoService autenticacaoService;
 
     public ComentarioService(ComentarioRepository comentarioRepository,
                               TarefaRepository tarefaRepository,
                               NotificacaoService notificacaoService,
+                              ProjetoService projetoService,
                               AutenticacaoService autenticacaoService) {
         this.comentarioRepository = comentarioRepository;
         this.tarefaRepository = tarefaRepository;
         this.notificacaoService = notificacaoService;
+        this.projetoService = projetoService;
         this.autenticacaoService = autenticacaoService;
     }
 
@@ -38,6 +41,7 @@ public class ComentarioService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
 
         Usuario autor = autenticacaoService.usuarioAutenticado();
+        projetoService.verificarAcesso(autor, tarefa.getProjeto());
 
         Comentario comentario = new Comentario();
         comentario.setTexto(dto.getTexto());
@@ -57,9 +61,10 @@ public class ComentarioService {
     }
 
     public List<ComentarioResponseDTO> listarPorTarefa(Long tarefaId) {
-        if (!tarefaRepository.existsById(tarefaId)) {
-            throw new RecursoNaoEncontradoException("Tarefa não encontrada");
-        }
+        Tarefa tarefa = tarefaRepository.findById(tarefaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Tarefa não encontrada"));
+
+        projetoService.verificarAcesso(autenticacaoService.usuarioAutenticado(), tarefa.getProjeto());
 
         return comentarioRepository.findByTarefaIdOrderByCriadoEmAsc(tarefaId).stream()
                 .map(this::toResponseDTO)

@@ -8,8 +8,10 @@ import java.util.Optional;
 
 public interface TagRepository extends JpaRepository<Tag, Long> {
 
-    Optional<Tag> findByNomeIgnoreCase(String nome);
+    Optional<Tag> findByNomeIgnoreCaseAndEmpresaId(String nome, Long empresaId);
 
     List<Tag> findByIdIn(List<Long> ids);
+
+    List<Tag> findByEmpresaId(Long empresaId);
 
 }
