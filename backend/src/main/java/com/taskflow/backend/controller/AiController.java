@@ -1,9 +1,11 @@
 package com.taskflow.backend.controller;
 
+import com.taskflow.backend.dto.ai.AnaliseProgressoSprintDTO;
 import com.taskflow.backend.dto.ai.AnaliseRiscoResponseDTO;
 import com.taskflow.backend.dto.ai.GerarDocumentoRequestDTO;
 import com.taskflow.backend.dto.ai.GerarPlanoBacklogRequestDTO;
 import com.taskflow.backend.dto.ai.GerarTarefasRequestDTO;
+import com.taskflow.backend.dto.ai.InterpretarTarefaRequestDTO;
 import com.taskflow.backend.dto.ai.PerguntaRequestDTO;
 import com.taskflow.backend.dto.ai.PlanoBacklogResponseDTO;
 import com.taskflow.backend.dto.ai.PrazoSugeridoDTO;
@@ -11,6 +13,7 @@ import com.taskflow.backend.dto.ai.RespostaIaDTO;
 import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
 import com.taskflow.backend.dto.ai.SugerirResponsavelRequestDTO;
 import com.taskflow.backend.dto.ai.SugestaoResponsavelDTO;
+import com.taskflow.backend.dto.ai.TarefaInterpretadaDTO;
 import com.taskflow.backend.dto.documento.DocumentoProjetoResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
 import com.taskflow.backend.service.AiService;
@@ -64,10 +67,27 @@ public class AiController {
         return aiService.sugerirResponsavel(projetoId, dto);
     }
 
+    @PostMapping("/projetos/{projetoId}/interpretar-tarefa")
+    public TarefaInterpretadaDTO interpretarTarefa(
+            @PathVariable Long projetoId,
+            @RequestBody InterpretarTarefaRequestDTO dto) {
+        return aiService.interpretarTarefa(projetoId, dto);
+    }
+
     @PostMapping("/projetos/{projetoId}/gerar-documento")
     public DocumentoProjetoResponseDTO gerarDocumento(
             @PathVariable Long projetoId,
             @RequestBody GerarDocumentoRequestDTO dto) {
         return aiService.gerarDocumento(projetoId, dto);
+    }
+
+    @PostMapping("/sprints/{sprintId}/gerar-retrospectiva")
+    public DocumentoProjetoResponseDTO gerarRetrospectivaSprint(@PathVariable Long sprintId) {
+        return aiService.gerarRetrospectivaSprint(sprintId);
+    }
+
+    @PostMapping("/sprints/{sprintId}/analisar-progresso")
+    public AnaliseProgressoSprintDTO analisarProgressoSprint(@PathVariable Long sprintId) {
+        return aiService.analisarProgressoSprint(sprintId);
     }
 }

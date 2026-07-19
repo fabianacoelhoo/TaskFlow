@@ -30,6 +30,14 @@ import { palette } from '../theme/theme';
 
 const CORES_TAG = ['#2a78d6', '#008300', '#B08D4F', '#B3441E', '#5B6472'];
 
+export interface DadosIniciaisTarefa {
+  titulo: string;
+  descricao: string;
+  prioridade: string;
+  prazo: string | null;
+  responsavelId: number | null;
+}
+
 interface TaskFormDialogProps {
   open: boolean;
   onClose: () => void;
@@ -40,6 +48,7 @@ interface TaskFormDialogProps {
   historias: HistoriaUsuario[];
   statusInicial: StatusTarefa;
   tarefaExistente?: Tarefa | null;
+  dadosIniciais?: DadosIniciaisTarefa | null;
 }
 
 export function TaskFormDialog({
@@ -52,6 +61,7 @@ export function TaskFormDialog({
   historias,
   statusInicial,
   tarefaExistente,
+  dadosIniciais,
 }: TaskFormDialogProps) {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
@@ -92,6 +102,16 @@ export function TaskFormDialog({
           tarefaExistente.dependencias.some((d) => d.id === t.id),
         ),
       );
+    } else if (dadosIniciais) {
+      setTitulo(dadosIniciais.titulo);
+      setDescricao(dadosIniciais.descricao);
+      setStatus(statusInicial);
+      setPrioridade(dadosIniciais.prioridade);
+      setPrazo(dadosIniciais.prazo ?? '');
+      setResponsavelId(dadosIniciais.responsavelId ?? usuarios[0]?.id ?? '');
+      setHistoriaUsuarioId('');
+      setTags([]);
+      setDependencias([]);
     } else {
       setTitulo('');
       setDescricao('');
@@ -106,7 +126,7 @@ export function TaskFormDialog({
     setJustificativaPrazo(null);
     setJustificativaResponsavel(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tarefaExistente, statusInicial, usuarios]);
+  }, [open, tarefaExistente, dadosIniciais, statusInicial, usuarios]);
 
   async function sugerirPrazo() {
     if (!titulo.trim() || responsavelId === '') return;

@@ -3,6 +3,8 @@ import { AppLayout } from './layouts/AppLayout';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
+import { EsqueciSenhaPage } from './pages/EsqueciSenhaPage';
+import { RedefinirSenhaPage } from './pages/RedefinirSenhaPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjetosPage } from './pages/ProjetosPage';
 import { KanbanPage } from './pages/KanbanPage';
@@ -20,6 +22,8 @@ function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/esqueci-senha" element={<EsqueciSenhaPage />} />
+      <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
 
       <Route
         element={

@@ -27,13 +27,16 @@ public class NotificacaoService {
     private final NotificacaoRepository notificacaoRepository;
     private final TarefaRepository tarefaRepository;
     private final AutenticacaoService autenticacaoService;
+    private final NotificacaoEmailService notificacaoEmailService;
 
     public NotificacaoService(NotificacaoRepository notificacaoRepository,
                                TarefaRepository tarefaRepository,
-                               AutenticacaoService autenticacaoService) {
+                               AutenticacaoService autenticacaoService,
+                               NotificacaoEmailService notificacaoEmailService) {
         this.notificacaoRepository = notificacaoRepository;
         this.tarefaRepository = tarefaRepository;
         this.autenticacaoService = autenticacaoService;
+        this.notificacaoEmailService = notificacaoEmailService;
     }
 
     public void criar(Usuario destinatario, String mensagem, Tarefa tarefaRelacionada) {
@@ -45,6 +48,8 @@ public class NotificacaoService {
         notificacao.setLida(false);
 
         notificacaoRepository.save(notificacao);
+
+        notificacaoEmailService.enviar(destinatario, mensagem, tarefaRelacionada);
     }
 
     public List<NotificacaoResponseDTO> listarPorUsuarioAtual() {

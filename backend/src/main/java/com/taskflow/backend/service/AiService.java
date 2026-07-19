@@ -20,6 +20,13 @@ import com.taskflow.backend.dto.ai.ResponsavelGerado;
 import com.taskflow.backend.dto.ai.SugerirPrazoRequestDTO;
 import com.taskflow.backend.dto.ai.SugerirResponsavelRequestDTO;
 import com.taskflow.backend.dto.ai.SugestaoResponsavelDTO;
+import com.taskflow.backend.dto.ai.InterpretarTarefaRequestDTO;
+import com.taskflow.backend.dto.ai.TarefaInterpretadaDTO;
+import com.taskflow.backend.dto.ai.TarefaInterpretadaGerada;
+import com.taskflow.backend.dto.ai.AnaliseProgressoSprintDTO;
+import com.taskflow.backend.dto.ai.AnaliseProgressoSprintGerada;
+import com.taskflow.backend.dto.sprint.BurndownResponseDTO;
+import com.taskflow.backend.dto.sprint.PontoBurndownDTO;
 import com.taskflow.backend.dto.documento.DocumentoProjetoRequestDTO;
 import com.taskflow.backend.dto.documento.DocumentoProjetoResponseDTO;
 import com.taskflow.backend.dto.epico.EpicoRequestDTO;
@@ -28,6 +35,7 @@ import com.taskflow.backend.dto.historiausuario.HistoriaUsuarioRequestDTO;
 import com.taskflow.backend.dto.historiausuario.HistoriaUsuarioResponseDTO;
 import com.taskflow.backend.dto.tarefa.TarefaRequestDTO;
 import com.taskflow.backend.dto.tarefa.TarefaResponseDTO;
+import com.taskflow.backend.entity.CategoriaDocumento;
 import com.taskflow.backend.entity.HistoriaUsuario;
 import com.taskflow.backend.entity.Historico;
 import com.taskflow.backend.entity.Projeto;
@@ -56,11 +64,14 @@ import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.time.format.TextStyle;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -76,6 +87,7 @@ public class AiService {
     private final EpicoService epicoService;
     private final HistoriaUsuarioService historiaUsuarioService;
     private final DocumentoProjetoService documentoProjetoService;
+    private final SprintService sprintService;
     private final SprintRepository sprintRepository;
     private final HistoriaUsuarioRepository historiaUsuarioRepository;
     private final HistoricoRepository historicoRepository;
@@ -97,6 +109,7 @@ public class AiService {
                       EpicoService epicoService,
                       HistoriaUsuarioService historiaUsuarioService,
                       DocumentoProjetoService documentoProjetoService,
+                      SprintService sprintService,
                       SprintRepository sprintRepository,
                       HistoriaUsuarioRepository historiaUsuarioRepository,
                       HistoricoRepository historicoRepository,
@@ -114,6 +127,7 @@ public class AiService {
         this.epicoService = epicoService;
         this.historiaUsuarioService = historiaUsuarioService;
         this.documentoProjetoService = documentoProjetoService;
+        this.sprintService = sprintService;
         this.sprintRepository = sprintRepository;
         this.historiaUsuarioRepository = historiaUsuarioRepository;
         this.historicoRepository = historicoRepository;
@@ -295,6 +309,166 @@ public class AiService {
         responseFormat.put("mime_type", "application/json");
         responseFormat.set("schema", esquema);
         return responseFormat;
+    }
+
+    public DocumentoProjetoResponseDTO gerarRetrospectivaSprint(Long sprintId) {
+        garantirChaveConfigurada();
+
+        Sprint sprint = buscarSprintComAcesso(sprintId);
+
+        if (sprint.getStatus() != StatusSprint.CONCLUIDA) {
+            throw new ValidacaoException("Só é possível gerar retrospectiva de uma sprint concluída.");
+        }
+
+        List<HistoriaUsuario> historias = historiaUsuarioRepository.findBySprintId(sprintId);
+        BurndownResponseDTO burndown = sprintService.burndown(sprintId);
+
+        String contexto = montarContextoRetrospectiva(sprint, historias, burndown);
+
+        String sistema = """
+                Você é um Scrum Master experiente. Com base SOMENTE nos dados reais fornecidos sobre \
+                uma sprint concluída, escreva uma retrospectiva objetiva em Markdown com exatamente três \
+                seções: "## O que foi bem", "## O que não foi bem" e "## Ações para a próxima sprint". \
+                Seja específico, cite histórias e números quando fizer sentido, e não invente nada que \
+                não esteja nos dados. Use português.""";
+
+        JsonNode resposta = enviar(sistema, contexto, construirEsquemaDocumento());
+        String textoJson = extrairTexto(resposta);
+
+        DocumentoGerado gerado;
+        try {
+            gerado = objectMapper.readValue(textoJson, DocumentoGerado.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        DocumentoProjetoRequestDTO documentoDto = new DocumentoProjetoRequestDTO();
+        documentoDto.setTitulo("Retrospectiva — " + sprint.getNome());
+        documentoDto.setCategoria(CategoriaDocumento.RETROSPECTIVA_SPRINT);
+        documentoDto.setConteudo(gerado.conteudo());
+
+        return documentoProjetoService.criar(sprint.getProjeto().getId(), documentoDto);
+    }
+
+    private String montarContextoRetrospectiva(Sprint sprint, List<HistoriaUsuario> historias, BurndownResponseDTO burndown) {
+        List<HistoriaUsuario> concluidas = historias.stream().filter(h -> h.getStatus() == StatusHistoria.CONCLUIDA).toList();
+        List<HistoriaUsuario> naoConcluidas = historias.stream().filter(h -> h.getStatus() != StatusHistoria.CONCLUIDA).toList();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Sprint: ").append(sprint.getNome()).append("\n");
+        if (sprint.getObjetivo() != null && !sprint.getObjetivo().isBlank()) {
+            sb.append("Objetivo: ").append(sprint.getObjetivo()).append("\n");
+        }
+        sb.append("Período: ").append(sprint.getDataInicio()).append(" a ").append(sprint.getDataFim()).append("\n");
+        sb.append("Pontos planejados: ").append(burndown.totalPontos()).append("\n\n");
+
+        sb.append("Histórias concluídas (").append(concluidas.size()).append(" de ").append(historias.size()).append("):\n");
+        sb.append(concluidas.isEmpty() ? "  (nenhuma)\n" : "");
+        for (HistoriaUsuario h : concluidas) {
+            sb.append("  - \"").append(h.getTitulo()).append("\"")
+                    .append(h.getPontos() != null ? " (" + h.getPontos() + " pts)" : "")
+                    .append("\n");
+        }
+
+        sb.append("\nHistórias não concluídas:\n");
+        sb.append(naoConcluidas.isEmpty() ? "  (nenhuma)\n" : "");
+        for (HistoriaUsuario h : naoConcluidas) {
+            sb.append("  - \"").append(h.getTitulo()).append("\"")
+                    .append(" | status: ").append(h.getStatus())
+                    .append(h.getPontos() != null ? " (" + h.getPontos() + " pts)" : "")
+                    .append("\n");
+        }
+
+        sb.append("\nBurndown (pontos restantes por dia, real vs. ideal):\n");
+        Map<LocalDate, Integer> reaisPorDia = burndown.real().stream()
+                .collect(Collectors.toMap(PontoBurndownDTO::data, PontoBurndownDTO::pontos));
+        for (PontoBurndownDTO ideal : burndown.linhaIdeal()) {
+            Integer real = reaisPorDia.get(ideal.data());
+            sb.append("  - ").append(ideal.data()).append(": ideal ").append(ideal.pontos())
+                    .append(real != null ? ", real " + real : ", sem registro")
+                    .append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    public AnaliseProgressoSprintDTO analisarProgressoSprint(Long sprintId) {
+        garantirChaveConfigurada();
+
+        Sprint sprint = buscarSprintComAcesso(sprintId);
+
+        if (sprint.getStatus() != StatusSprint.ATIVA) {
+            throw new ValidacaoException("Só é possível analisar o ritmo de uma sprint ativa.");
+        }
+
+        BurndownResponseDTO burndown = sprintService.burndown(sprintId);
+        LocalDate hoje = LocalDate.now();
+
+        StringBuilder contexto = new StringBuilder();
+        contexto.append("Sprint: ").append(sprint.getNome()).append("\n");
+        contexto.append("Período: ").append(sprint.getDataInicio()).append(" a ").append(sprint.getDataFim()).append("\n");
+        contexto.append("Hoje: ").append(hoje).append("\n");
+        contexto.append("Pontos planejados: ").append(burndown.totalPontos()).append("\n\n");
+        contexto.append("Linha ideal (pontos restantes esperados por dia):\n");
+        for (PontoBurndownDTO ideal : burndown.linhaIdeal()) {
+            contexto.append("  - ").append(ideal.data()).append(": ").append(ideal.pontos()).append("\n");
+        }
+        contexto.append("\nBurndown real registrado até agora:\n");
+        contexto.append(burndown.real().isEmpty() ? "  (nenhum registro ainda)\n" : "");
+        for (PontoBurndownDTO real : burndown.real()) {
+            contexto.append("  - ").append(real.data()).append(": ").append(real.pontos()).append(" pontos restantes\n");
+        }
+
+        String sistema = """
+                Você é um Scrum Master. Compare o burndown real da sprint ativa com a linha ideal e \
+                diga se o ritmo está bom, exige atenção ou está atrasado. Responda com uma situação \
+                (exatamente NO_RITMO, ATENCAO ou ATRASADA) e uma mensagem curta e objetiva em português \
+                explicando o principal motivo, baseada SOMENTE nos números fornecidos.""";
+
+        JsonNode resposta = enviar(sistema, contexto.toString(), construirEsquemaAnaliseProgressoSprint());
+        String textoJson = extrairTexto(resposta);
+
+        AnaliseProgressoSprintGerada gerado;
+        try {
+            gerado = objectMapper.readValue(textoJson, AnaliseProgressoSprintGerada.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        String situacao = gerado.situacao() != null && SITUACOES_SPRINT_VALIDAS.contains(gerado.situacao().toUpperCase())
+                ? gerado.situacao().toUpperCase()
+                : "ATENCAO";
+
+        return new AnaliseProgressoSprintDTO(situacao, gerado.mensagem());
+    }
+
+    private static final Set<String> SITUACOES_SPRINT_VALIDAS = Set.of("NO_RITMO", "ATENCAO", "ATRASADA");
+
+    private ObjectNode construirEsquemaAnaliseProgressoSprint() {
+        ObjectNode propriedades = objectMapper.createObjectNode();
+        propriedades.set("situacao", campoTexto("Situação da sprint: NO_RITMO, ATENCAO ou ATRASADA"));
+        propriedades.set("mensagem", campoTexto("Mensagem curta e objetiva em português explicando o motivo"));
+
+        ObjectNode esquema = objectMapper.createObjectNode();
+        esquema.put("type", "object");
+        esquema.set("properties", propriedades);
+        esquema.set("required", objectMapper.createArrayNode().add("situacao").add("mensagem"));
+
+        ObjectNode responseFormat = objectMapper.createObjectNode();
+        responseFormat.put("type", "text");
+        responseFormat.put("mime_type", "application/json");
+        responseFormat.set("schema", esquema);
+        return responseFormat;
+    }
+
+    private Sprint buscarSprintComAcesso(Long sprintId) {
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Sprint não encontrada"));
+
+        Usuario autor = autenticacaoService.usuarioAutenticado();
+        projetoService.verificarAcesso(autor, sprint.getProjeto());
+
+        return sprint;
     }
 
     public AnaliseRiscoResponseDTO analisarRiscos(Long projetoId) {
@@ -588,6 +762,99 @@ public class AiService {
         esquema.put("type", "object");
         esquema.set("properties", propriedades);
         esquema.set("required", objectMapper.createArrayNode().add("responsavelId").add("justificativa"));
+
+        ObjectNode responseFormat = objectMapper.createObjectNode();
+        responseFormat.put("type", "text");
+        responseFormat.put("mime_type", "application/json");
+        responseFormat.set("schema", esquema);
+        return responseFormat;
+    }
+
+    private static final Set<String> PRIORIDADES_VALIDAS = Set.of("BAIXA", "MEDIA", "ALTA");
+
+    public TarefaInterpretadaDTO interpretarTarefa(Long projetoId, InterpretarTarefaRequestDTO dto) {
+        garantirChaveConfigurada();
+
+        if (dto.getTexto() == null || dto.getTexto().isBlank()) {
+            throw new ValidacaoException("Descreva a tarefa que você quer criar.");
+        }
+
+        Projeto projeto = projetoService.buscarPorId(projetoId);
+        List<Usuario> membros = projeto.getMembros();
+        LocalDate hoje = LocalDate.now();
+
+        StringBuilder contexto = new StringBuilder();
+        contexto.append("Data de hoje: ").append(hoje)
+                .append(" (").append(hoje.getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("pt", "BR"))).append(")\n\n");
+        contexto.append("Membros do projeto:\n");
+        for (Usuario membro : membros) {
+            contexto.append("  - [id ").append(membro.getId()).append("] ").append(membro.getNome()).append("\n");
+        }
+        contexto.append("\nTexto do usuário: \"").append(dto.getTexto()).append("\"");
+
+        String sistema = """
+                Você é um assistente que transforma uma frase em linguagem natural em uma tarefa \
+                estruturada para um quadro Kanban. Extraia um título curto e objetivo, uma descrição \
+                (pode repetir o texto original se não houver mais detalhes), a prioridade (BAIXA, \
+                MEDIA ou ALTA — use MEDIA se não for mencionada), o prazo (data no formato AAAA-MM-DD, \
+                interpretando expressões relativas como "amanhã", "sexta-feira" ou "semana que vem" a \
+                partir da data de hoje informada; omita o campo se nenhum prazo for mencionado) e o id \
+                do responsável (escolhido a partir da lista de membros do projeto, somente se um nome \
+                for mencionado no texto e corresponder claramente a algum membro; omita o campo caso \
+                contrário). Nunca invente um prazo ou responsável que não tenha relação com o texto.""";
+
+        JsonNode resposta = enviar(sistema, contexto.toString(), construirEsquemaInterpretarTarefa());
+        String textoJson = extrairTexto(resposta);
+
+        TarefaInterpretadaGerada gerado;
+        try {
+            gerado = objectMapper.readValue(textoJson, TarefaInterpretadaGerada.class);
+        } catch (RuntimeException e) {
+            throw new ValidacaoException("A IA retornou uma resposta em um formato inesperado.");
+        }
+
+        if (gerado.titulo() == null || gerado.titulo().isBlank()) {
+            throw new ValidacaoException("Não foi possível identificar uma tarefa nesse texto.");
+        }
+
+        String prioridade = gerado.prioridade() != null && PRIORIDADES_VALIDAS.contains(gerado.prioridade().toUpperCase())
+                ? gerado.prioridade().toUpperCase()
+                : "MEDIA";
+
+        LocalDate prazo = null;
+        if (gerado.prazo() != null && !gerado.prazo().isBlank()) {
+            try {
+                prazo = LocalDate.parse(gerado.prazo());
+            } catch (DateTimeParseException e) {
+                prazo = null;
+            }
+        }
+
+        Usuario responsavel = gerado.responsavelId() != null
+                ? membros.stream().filter(m -> m.getId().equals(gerado.responsavelId())).findFirst().orElse(null)
+                : null;
+
+        return new TarefaInterpretadaDTO(
+                gerado.titulo(),
+                gerado.descricao(),
+                prioridade,
+                prazo,
+                responsavel != null ? responsavel.getId() : null,
+                responsavel != null ? responsavel.getNome() : null);
+    }
+
+    private ObjectNode construirEsquemaInterpretarTarefa() {
+        ObjectNode propriedades = objectMapper.createObjectNode();
+        propriedades.set("titulo", campoTexto("Título curto e objetivo da tarefa"));
+        propriedades.set("descricao", campoTexto("Descrição da tarefa"));
+        propriedades.set("prioridade", campoTexto("Prioridade da tarefa: BAIXA, MEDIA ou ALTA"));
+        propriedades.set("prazo", campoTexto("Prazo sugerido no formato AAAA-MM-DD, se mencionado no texto"));
+        propriedades.set("responsavelId", campoNumero("Id do membro mencionado como responsável, se houver"));
+
+        ObjectNode esquema = objectMapper.createObjectNode();
+        esquema.put("type", "object");
+        esquema.set("properties", propriedades);
+        esquema.set("required", objectMapper.createArrayNode().add("titulo").add("descricao").add("prioridade"));
 
         ObjectNode responseFormat = objectMapper.createObjectNode();
         responseFormat.put("type", "text");

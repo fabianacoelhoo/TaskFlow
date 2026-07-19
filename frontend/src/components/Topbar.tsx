@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { palette } from '../theme/theme';
 import { NotificationBell } from './NotificationBell';
+import { GlobalSearch } from './GlobalSearch';
 
 export function Topbar() {
   const { usuario, sair } = useAuth();
@@ -31,7 +32,10 @@ export function Topbar() {
 
   return (
     <AppBar position="sticky" color="transparent" sx={{ bgcolor: palette.ivory }}>
-      <Toolbar sx={{ justifyContent: 'flex-end', gap: 1, py: 1 }}>
+      <Toolbar sx={{ justifyContent: 'space-between', gap: 2, py: 1 }}>
+        <GlobalSearch />
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <NotificationBell />
 
         <Box
@@ -71,6 +75,7 @@ export function Topbar() {
           >
             {iniciais || <PersonRoundedIcon fontSize="small" />}
           </Avatar>
+        </Box>
         </Box>
 
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>

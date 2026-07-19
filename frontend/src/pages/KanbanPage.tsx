@@ -27,12 +27,14 @@ import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
 import RuleRoundedIcon from '@mui/icons-material/RuleRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import GitHubIcon from '@mui/icons-material/GitHub';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { TaskCard } from '../components/TaskCard';
-import { TaskFormDialog } from '../components/TaskFormDialog';
+import { TaskFormDialog, type DadosIniciaisTarefa } from '../components/TaskFormDialog';
 import { TaskDetailDrawer } from '../components/TaskDetailDrawer';
 import { GerarTarefasIADialog } from '../components/GerarTarefasIADialog';
+import { CriarTarefaIADialog } from '../components/CriarTarefaIADialog';
+import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded';
 import { IntegracaoGithubDialog } from '../components/IntegracaoGithubDialog';
 import { CalendarView } from '../components/calendar/CalendarView';
 import {
@@ -55,6 +57,7 @@ export function KanbanPage() {
   const projetoId = Number(id);
   const navigate = useNavigate();
   const { usuario } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
@@ -68,6 +71,8 @@ export function KanbanPage() {
   const [tarefaSelecionada, setTarefaSelecionada] = useState<Tarefa | null>(null);
   const [erroArraste, setErroArraste] = useState<string | null>(null);
   const [dialogIaAberto, setDialogIaAberto] = useState(false);
+  const [dialogCriarIaAberto, setDialogCriarIaAberto] = useState(false);
+  const [dadosIniciaisIA, setDadosIniciaisIA] = useState<DadosIniciaisTarefa | null>(null);
   const [visualizacao, setVisualizacao] = useState<'quadro' | 'calendario'>('quadro');
   const [analisandoRiscos, setAnalisandoRiscos] = useState(false);
   const [mensagemRiscos, setMensagemRiscos] = useState<string | null>(null);
@@ -91,6 +96,19 @@ export function KanbanPage() {
     carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
+
+  useEffect(() => {
+    const tarefaIdParam = searchParams.get('tarefaId');
+    if (!tarefaIdParam || tarefas.length === 0) return;
+
+    const tarefa = tarefas.find((t) => t.id === Number(tarefaIdParam));
+    if (tarefa) {
+      setTarefaSelecionada(tarefa);
+    }
+    searchParams.delete('tarefaId');
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tarefas]);
 
   const usuariosPorId = useMemo(() => {
     const mapa = new Map<number, Usuario>();
@@ -175,15 +193,25 @@ export function KanbanPage() {
 
   function abrirNovaTarefa(status: StatusTarefa) {
     setTarefaEditando(null);
+    setDadosIniciaisIA(null);
     setStatusNovaTarefa(status);
     setDialogAberto(true);
   }
 
   function abrirEdicao(tarefa: Tarefa) {
     setTarefaEditando(tarefa);
+    setDadosIniciaisIA(null);
     setStatusNovaTarefa(tarefa.status);
     setDialogAberto(true);
     setTarefaSelecionada(null);
+  }
+
+  function handleTarefaInterpretada(dados: DadosIniciaisTarefa) {
+    setDialogCriarIaAberto(false);
+    setTarefaEditando(null);
+    setDadosIniciaisIA(dados);
+    setStatusNovaTarefa('A_FAZER');
+    setDialogAberto(true);
   }
 
   return (
@@ -233,6 +261,13 @@ export function KanbanPage() {
             </Button>
             <Button variant="outlined" startIcon={<GitHubIcon />} onClick={() => setDialogGithubAberto(true)}>
               GitHub
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<EditNoteRoundedIcon />}
+              onClick={() => setDialogCriarIaAberto(true)}
+            >
+              Criar tarefa por texto
             </Button>
             <Button
               variant="contained"
@@ -423,6 +458,14 @@ export function KanbanPage() {
         historias={historias}
         statusInicial={statusNovaTarefa}
         tarefaExistente={tarefaEditando}
+        dadosIniciais={dadosIniciaisIA}
+      />
+
+      <CriarTarefaIADialog
+        open={dialogCriarIaAberto}
+        onClose={() => setDialogCriarIaAberto(false)}
+        projetoId={projetoId}
+        onInterpretado={handleTarefaInterpretada}
       />
 
       <TaskDetailDrawer

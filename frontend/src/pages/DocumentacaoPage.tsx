@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -42,6 +42,7 @@ const CATEGORIA_LABEL: Record<CategoriaDocumento, string> = {
   BANCO_DE_DADOS: 'Banco de dados',
   REGRAS_DE_NEGOCIO: 'Regras de negócio',
   DECISOES: 'Decisões',
+  RETROSPECTIVA_SPRINT: 'Retrospectiva de sprint',
   OUTRO: 'Outro',
 };
 
@@ -52,6 +53,7 @@ const CATEGORIA_ORDEM: CategoriaDocumento[] = [
   'BANCO_DE_DADOS',
   'REGRAS_DE_NEGOCIO',
   'DECISOES',
+  'RETROSPECTIVA_SPRINT',
   'OUTRO',
 ];
 
@@ -59,6 +61,7 @@ export function DocumentacaoPage() {
   const { id } = useParams();
   const projetoId = Number(id);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [documentos, setDocumentos] = useState<DocumentoProjeto[]>([]);
@@ -85,7 +88,12 @@ export function DocumentacaoPage() {
 
   useEffect(() => {
     listarProjetos().then((lista) => setProjeto(lista.find((p) => p.id === projetoId) ?? null));
-    carregar();
+    const documentoIdParam = searchParams.get('documentoId');
+    carregar(documentoIdParam ? Number(documentoIdParam) : undefined);
+    if (documentoIdParam) {
+      searchParams.delete('documentoId');
+      setSearchParams(searchParams, { replace: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projetoId]);
 

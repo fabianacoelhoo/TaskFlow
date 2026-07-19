@@ -20,6 +20,17 @@ export interface Empresa {
   codigoConvite: string | null;
 }
 
+export type TipoResultadoPesquisa = 'PROJETO' | 'TAREFA' | 'DOCUMENTO';
+
+export interface ResultadoPesquisa {
+  tipo: TipoResultadoPesquisa;
+  id: number;
+  titulo: string;
+  trecho: string | null;
+  projetoId: number;
+  projetoNome: string;
+}
+
 export interface Projeto {
   id: number;
   nome: string;
@@ -176,6 +187,22 @@ export interface SugestaoResponsavel {
   justificativa: string;
 }
 
+export interface TarefaInterpretada {
+  titulo: string;
+  descricao: string;
+  prioridade: string;
+  prazo: string | null;
+  responsavelId: number | null;
+  nomeResponsavel: string | null;
+}
+
+export type SituacaoProgressoSprint = 'NO_RITMO' | 'ATENCAO' | 'ATRASADA';
+
+export interface AnaliseProgressoSprint {
+  situacao: SituacaoProgressoSprint;
+  mensagem: string;
+}
+
 export type TipoAcaoAutomacao =
   | 'NOTIFICAR_RESPONSAVEL'
   | 'NOTIFICAR_MEMBROS_PROJETO'
@@ -207,6 +234,7 @@ export type CategoriaDocumento =
   | 'BANCO_DE_DADOS'
   | 'REGRAS_DE_NEGOCIO'
   | 'DECISOES'
+  | 'RETROSPECTIVA_SPRINT'
   | 'OUTRO';
 
 export interface DocumentoProjeto {

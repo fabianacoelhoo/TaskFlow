@@ -34,6 +34,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/auth/registrar-empresa", "/api/auth/registrar-com-codigo").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/esqueci-senha", "/api/auth/redefinir-senha").permitAll()
                 .requestMatchers("/api/auth/login").permitAll()
                 .anyRequest().authenticated()
             )

@@ -7,5 +7,6 @@ public enum CategoriaDocumento {
     BANCO_DE_DADOS,
     REGRAS_DE_NEGOCIO,
     DECISOES,
+    RETROSPECTIVA_SPRINT,
     OUTRO
 }

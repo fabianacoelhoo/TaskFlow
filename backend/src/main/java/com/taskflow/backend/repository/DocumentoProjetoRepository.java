@@ -9,4 +9,6 @@ public interface DocumentoProjetoRepository extends JpaRepository<DocumentoProje
 
     List<DocumentoProjeto> findByProjetoId(Long projetoId);
 
+    List<DocumentoProjeto> findByProjetoIdIn(List<Long> projetoIds);
+
 }

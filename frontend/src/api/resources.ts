@@ -1,6 +1,7 @@
 import { api } from './client';
 import type {
   AcaoAutomacao,
+  AnaliseProgressoSprint,
   AnaliseRisco,
   Anexo,
   AtividadeGithub,
@@ -20,6 +21,7 @@ import type {
   PlanoBacklogGerado,
   Projeto,
   RankingItem,
+  ResultadoPesquisa,
   RegraAutomacao,
   Sprint,
   StatusGithub,
@@ -28,6 +30,7 @@ import type {
   SugestaoResponsavel,
   Tag,
   Tarefa,
+  TarefaInterpretada,
   Usuario,
   VelocidadeItem,
 } from './types';
@@ -45,6 +48,19 @@ export async function registrarEmpresa(nomeEmpresa: string, nome: string, email:
 export async function registrarComCodigo(codigoConvite: string, nome: string, email: string, senha: string) {
   const { data } = await api.post<Usuario>('/auth/registrar-com-codigo', { codigoConvite, nome, email, senha });
   return data;
+}
+
+export async function pesquisar(q: string) {
+  const { data } = await api.get<ResultadoPesquisa[]>('/pesquisa', { params: { q } });
+  return data;
+}
+
+export async function esqueciSenha(email: string) {
+  await api.post('/auth/esqueci-senha', { email });
+}
+
+export async function redefinirSenha(token: string, novaSenha: string) {
+  await api.post('/auth/redefinir-senha', { token, novaSenha });
 }
 
 export async function obterEmpresa() {
@@ -270,6 +286,11 @@ export async function sugerirPrazoComIA(titulo: string, prioridade: string, resp
   return data;
 }
 
+export async function interpretarTarefaComIA(projetoId: number, texto: string) {
+  const { data } = await api.post<TarefaInterpretada>(`/ai/projetos/${projetoId}/interpretar-tarefa`, { texto });
+  return data;
+}
+
 export async function listarEpicos(projetoId: number) {
   const { data } = await api.get<Epico[]>(`/projetos/${projetoId}/epicos`);
   return data;
@@ -357,6 +378,16 @@ export async function concluirSprint(id: number) {
 
 export async function obterBurndown(sprintId: number) {
   const { data } = await api.get<Burndown>(`/sprints/${sprintId}/burndown`);
+  return data;
+}
+
+export async function gerarRetrospectivaSprintComIA(sprintId: number) {
+  const { data } = await api.post<DocumentoProjeto>(`/ai/sprints/${sprintId}/gerar-retrospectiva`);
+  return data;
+}
+
+export async function analisarProgressoSprintComIA(sprintId: number) {
+  const { data } = await api.post<AnaliseProgressoSprint>(`/ai/sprints/${sprintId}/analisar-progresso`);
   return data;
 }
 

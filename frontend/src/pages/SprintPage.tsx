@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -24,10 +25,13 @@ import { DragDropContext, Draggable, Droppable, type DropResult } from '@hello-p
 import { useNavigate, useParams } from 'react-router-dom';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import { PageHeader } from '../components/PageHeader';
 import {
+  analisarProgressoSprintComIA,
   atualizarHistoria,
   concluirSprint,
+  gerarRetrospectivaSprintComIA,
   iniciarSprint,
   listarHistorias,
   listarSprints,
@@ -36,7 +40,16 @@ import {
   obterVelocidade,
   type NovaHistoria,
 } from '../api/resources';
-import type { Burndown, HistoriaUsuario, Sprint, StatusHistoria, Tarefa, VelocidadeItem } from '../api/types';
+import type {
+  AnaliseProgressoSprint,
+  Burndown,
+  DocumentoProjeto,
+  HistoriaUsuario,
+  Sprint,
+  StatusHistoria,
+  Tarefa,
+  VelocidadeItem,
+} from '../api/types';
 import { STATUS_COLOR } from '../theme/status';
 import { palette } from '../theme/theme';
 
@@ -54,6 +67,12 @@ const STATUS_HISTORIA_COLOR: Record<StatusHistoria, string> = {
   CONCLUIDA: STATUS_COLOR.CONCLUIDO,
 };
 
+const SITUACAO_SEVERITY: Record<AnaliseProgressoSprint['situacao'], 'success' | 'warning' | 'error'> = {
+  NO_RITMO: 'success',
+  ATENCAO: 'warning',
+  ATRASADA: 'error',
+};
+
 export function SprintPage() {
   const { id, sprintId } = useParams();
   const projetoId = Number(id);
@@ -66,6 +85,14 @@ export function SprintPage() {
   const [burndown, setBurndown] = useState<Burndown | null>(null);
   const [velocidade, setVelocidade] = useState<VelocidadeItem[]>([]);
   const [carregando, setCarregando] = useState(true);
+
+  const [analisandoRitmo, setAnalisandoRitmo] = useState(false);
+  const [resultadoRitmo, setResultadoRitmo] = useState<AnaliseProgressoSprint | null>(null);
+  const [erroRitmo, setErroRitmo] = useState<string | null>(null);
+
+  const [gerandoRetro, setGerandoRetro] = useState(false);
+  const [retroGerada, setRetroGerada] = useState<DocumentoProjeto | null>(null);
+  const [erroRetro, setErroRetro] = useState<string | null>(null);
 
   function carregar() {
     Promise.all([
@@ -149,6 +176,32 @@ export function SprintPage() {
     carregar();
   }
 
+  async function handleAnalisarProgresso() {
+    setAnalisandoRitmo(true);
+    setErroRitmo(null);
+    try {
+      const resultado = await analisarProgressoSprintComIA(sprintIdNum);
+      setResultadoRitmo(resultado);
+    } catch (err: any) {
+      setErroRitmo(err?.response?.data?.erro ?? 'Não foi possível analisar o ritmo da sprint agora.');
+    } finally {
+      setAnalisandoRitmo(false);
+    }
+  }
+
+  async function handleGerarRetrospectiva() {
+    setGerandoRetro(true);
+    setErroRetro(null);
+    try {
+      const documento = await gerarRetrospectivaSprintComIA(sprintIdNum);
+      setRetroGerada(documento);
+    } catch (err: any) {
+      setErroRetro(err?.response?.data?.erro ?? 'Não foi possível gerar a retrospectiva agora.');
+    } finally {
+      setGerandoRetro(false);
+    }
+  }
+
   return (
     <Box>
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
@@ -169,12 +222,68 @@ export function SprintPage() {
               Iniciar sprint
             </Button>
           ) : sprint?.status === 'ATIVA' ? (
-            <Button variant="contained" onClick={handleConcluir}>
-              Concluir sprint
+            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+              <Button
+                variant="outlined"
+                startIcon={<AutoAwesomeRoundedIcon />}
+                onClick={handleAnalisarProgresso}
+                disabled={analisandoRitmo}
+              >
+                {analisandoRitmo ? 'Analisando...' : 'Analisar ritmo com IA'}
+              </Button>
+              <Button variant="contained" onClick={handleConcluir}>
+                Concluir sprint
+              </Button>
+            </Stack>
+          ) : sprint?.status === 'CONCLUIDA' ? (
+            <Button
+              variant="outlined"
+              startIcon={<AutoAwesomeRoundedIcon />}
+              onClick={handleGerarRetrospectiva}
+              disabled={gerandoRetro || retroGerada !== null}
+            >
+              {gerandoRetro ? 'Gerando...' : retroGerada ? 'Retrospectiva gerada' : 'Gerar retrospectiva com IA'}
             </Button>
           ) : undefined
         }
       />
+
+      {resultadoRitmo && (
+        <Alert
+          severity={SITUACAO_SEVERITY[resultadoRitmo.situacao]}
+          sx={{ mb: 2.5 }}
+          onClose={() => setResultadoRitmo(null)}
+        >
+          {resultadoRitmo.mensagem}
+        </Alert>
+      )}
+      {erroRitmo && (
+        <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setErroRitmo(null)}>
+          {erroRitmo}
+        </Alert>
+      )}
+      {retroGerada && (
+        <Alert
+          severity="success"
+          sx={{ mb: 2.5 }}
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => navigate(`/projetos/${projetoId}/documentacao?documentoId=${retroGerada.id}`)}
+            >
+              Ver retrospectiva
+            </Button>
+          }
+        >
+          Retrospectiva gerada e salva na Documentação.
+        </Alert>
+      )}
+      {erroRetro && (
+        <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setErroRetro(null)}>
+          {erroRetro}
+        </Alert>
+      )}
 
       {carregando ? (
         <Skeleton variant="rounded" height={400} sx={{ borderRadius: 4 }} />

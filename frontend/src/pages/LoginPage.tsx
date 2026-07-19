@@ -258,6 +258,14 @@ export function LoginPage() {
                   fullWidth
                 />
 
+                {modo === 'entrar' && (
+                  <Typography variant="body2" sx={{ textAlign: 'right', mt: -1.5 }}>
+                    <Box component={RouterLink} to="/esqueci-senha" sx={{ ...linkButtonSx, textDecoration: 'none' }}>
+                      Esqueci minha senha
+                    </Box>
+                  </Typography>
+                )}
+
                 {erro && <Alert severity="error">{erro}</Alert>}
 
                 <Button

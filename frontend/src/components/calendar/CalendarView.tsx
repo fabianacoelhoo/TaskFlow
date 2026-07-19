@@ -113,7 +113,8 @@ export function CalendarView({ tarefas, usuariosPorId, onSelecionarTarefa }: Cal
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(7, 1fr)',
+          gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+          width: '100%',
           borderTop: `1px solid ${palette.line}`,
           borderLeft: `1px solid ${palette.line}`,
         }}
@@ -149,6 +150,8 @@ export function CalendarView({ tarefas, usuariosPorId, onSelecionarTarefa }: Cal
               key={iso}
               sx={{
                 minHeight: 108,
+                minWidth: 0,
+                overflow: 'hidden',
                 p: 0.75,
                 borderRight: `1px solid ${palette.line}`,
                 borderBottom: `1px solid ${palette.line}`,
@@ -194,6 +197,7 @@ export function CalendarView({ tarefas, usuariosPorId, onSelecionarTarefa }: Cal
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
+                      minWidth: 0,
                       px: 0.6,
                       py: 0.3,
                       borderRadius: 1.5,
@@ -213,7 +217,14 @@ export function CalendarView({ tarefas, usuariosPorId, onSelecionarTarefa }: Cal
                     />
                     <Typography
                       noWrap
-                      sx={{ fontSize: '0.68rem', fontWeight: 600, color: palette.ink }}
+                      sx={{
+                        fontSize: '0.68rem',
+                        fontWeight: 600,
+                        color: palette.ink,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
                     >
                       {tarefa.titulo}
                     </Typography>
