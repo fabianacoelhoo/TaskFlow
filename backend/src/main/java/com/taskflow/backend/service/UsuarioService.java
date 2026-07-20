@@ -56,13 +56,22 @@ public class UsuarioService {
 
         autor.setNome(dto.getNome());
         autor.setCargo(dto.getCargo());
-        autor.setDataNascimento(dto.getDataNascimento());
         autor.setDisponibilidade(dto.getDisponibilidade());
         autor.setHabilidades(dto.getHabilidades() != null ? new ArrayList<>(dto.getHabilidades()) : new ArrayList<>());
 
-        // CPF só pode ser definido uma vez: depois de gravado, ignora qualquer tentativa de troca.
+        // CPF e data de nascimento só podem ser definidos uma vez: depois de gravados,
+        // qualquer tentativa de troca é ignorada.
         if (autor.getCpf() == null && dto.getCpf() != null && !dto.getCpf().isBlank()) {
-            autor.setCpf(validarENormalizarCpf(dto.getCpf()));
+            String cpfNormalizado = validarENormalizarCpf(dto.getCpf());
+
+            usuarioRepository.findByCpf(cpfNormalizado).ifPresent(outro -> {
+                throw new ValidacaoException("Esse CPF já está cadastrado em outra conta.");
+            });
+
+            autor.setCpf(cpfNormalizado);
+        }
+        if (autor.getDataNascimento() == null && dto.getDataNascimento() != null) {
+            autor.setDataNascimento(dto.getDataNascimento());
         }
 
         return toResponseDTO(usuarioRepository.save(autor));

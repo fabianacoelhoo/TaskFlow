@@ -8,6 +8,11 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   MenuItem,
   Stack,
   TextField,
@@ -54,6 +59,7 @@ export function PerfilPage() {
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [confirmacaoAberta, setConfirmacaoAberta] = useState(false);
 
   useEffect(() => {
     if (usuario) {
@@ -66,8 +72,20 @@ export function PerfilPage() {
     }
   }, [usuario]);
 
-  async function salvar() {
+  const definindoCpfAgora = !usuario?.cpf && cpf.trim() !== '';
+  const definindoNascimentoAgora = !usuario?.dataNascimento && dataNascimento.trim() !== '';
+
+  function salvar() {
     if (!nome.trim()) return;
+    if (definindoCpfAgora || definindoNascimentoAgora) {
+      setConfirmacaoAberta(true);
+      return;
+    }
+    confirmarESalvar();
+  }
+
+  async function confirmarESalvar() {
+    setConfirmacaoAberta(false);
     setSalvando(true);
     setSalvo(false);
     setErro(null);
@@ -193,8 +211,18 @@ export function PerfilPage() {
                   type="date"
                   value={dataNascimento}
                   onChange={(e) => setDataNascimento(e.target.value)}
+                  disabled={Boolean(usuario?.dataNascimento)}
                   fullWidth
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    input: {
+                      endAdornment: usuario?.dataNascimento ? (
+                        <Tooltip title="Data de nascimento não pode ser alterada depois de cadastrada">
+                          <LockRoundedIcon sx={{ fontSize: 18, color: palette.slateLight }} />
+                        </Tooltip>
+                      ) : undefined,
+                    },
+                  }}
                 />
 
                 <TextField
@@ -297,6 +325,27 @@ export function PerfilPage() {
           </Card>
         </Reveal>
       </Stack>
+
+      <Dialog open={confirmacaoAberta} onClose={() => setConfirmacaoAberta(false)}>
+        <DialogTitle>Confirmar dados definitivos</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {definindoCpfAgora && definindoNascimentoAgora
+              ? 'Depois de salvos, o CPF e a data de nascimento não poderão mais ser alterados. Confere se estão certos antes de confirmar.'
+              : definindoCpfAgora
+                ? 'Depois de salvo, o CPF não poderá mais ser alterado. Confere se está certo antes de confirmar.'
+                : 'Depois de salva, a data de nascimento não poderá mais ser alterada. Confere se está certa antes de confirmar.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setConfirmacaoAberta(false)} color="inherit">
+            Cancelar
+          </Button>
+          <Button variant="contained" onClick={confirmarESalvar} disabled={salvando}>
+            {salvando ? 'Salvando...' : 'Confirmar e salvar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

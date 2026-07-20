@@ -12,4 +12,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     List<Usuario> findByEmpresaId(Long empresaId);
 
+    Optional<Usuario> findByCpf(String cpf);
+
 }
