@@ -4,6 +4,7 @@ import com.taskflow.backend.entity.DisponibilidadeUsuario;
 import com.taskflow.backend.entity.Papel;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -18,6 +19,10 @@ public class UsuarioResponseDTO {
     private Papel papel;
 
     private String cargo;
+
+    private String cpf;
+
+    private LocalDate dataNascimento;
 
     private DisponibilidadeUsuario disponibilidade;
 

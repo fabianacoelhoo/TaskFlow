@@ -89,11 +89,21 @@ export async function alterarPapel(usuarioId: number, papel: Papel) {
 }
 
 export async function atualizarMeuPerfil(
+  nome: string,
   cargo: string | null,
+  cpf: string | null,
+  dataNascimento: string | null,
   disponibilidade: DisponibilidadeUsuario,
   habilidades: string[],
 ) {
-  const { data } = await api.put<Usuario>('/usuarios/me', { cargo, disponibilidade, habilidades });
+  const { data } = await api.put<Usuario>('/usuarios/me', {
+    nome,
+    cargo,
+    cpf,
+    dataNascimento,
+    disponibilidade,
+    habilidades,
+  });
   return data;
 }
 

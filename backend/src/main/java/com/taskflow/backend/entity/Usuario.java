@@ -3,6 +3,7 @@ package com.taskflow.backend.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +31,11 @@ public class Usuario {
     private Empresa empresa;
 
     private String cargo;
+
+    @Column(unique = true)
+    private String cpf;
+
+    private LocalDate dataNascimento;
 
     @Enumerated(EnumType.STRING)
     private DisponibilidadeUsuario disponibilidade = DisponibilidadeUsuario.DISPONIVEL;

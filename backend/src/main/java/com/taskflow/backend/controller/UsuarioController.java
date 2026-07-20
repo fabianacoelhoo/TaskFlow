@@ -40,6 +40,8 @@ public class UsuarioController {
         dto.setEmail(usuario.getEmail());
         dto.setPapel(usuario.getPapel());
         dto.setCargo(usuario.getCargo());
+        dto.setCpf(usuario.getCpf());
+        dto.setDataNascimento(usuario.getDataNascimento());
         dto.setDisponibilidade(usuario.getDisponibilidade());
         dto.setHabilidades(usuario.getHabilidades());
         return dto;

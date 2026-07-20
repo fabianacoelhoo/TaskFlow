@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Autocomplete,
   Avatar,
   Box,
@@ -10,10 +11,13 @@ import {
   MenuItem,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader';
 import { Reveal } from '../components/Reveal';
@@ -31,31 +35,48 @@ function iniciaisDe(nome?: string) {
     .join('');
 }
 
+function formatarCpf(cpf: string) {
+  const digitos = cpf.replace(/\D/g, '');
+  if (digitos.length !== 11) return cpf;
+  return digitos.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+}
+
 export function PerfilPage() {
   const { usuario, sair, recarregarUsuario } = useAuth();
   const navigate = useNavigate();
 
+  const [nome, setNome] = useState('');
   const [cargo, setCargo] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [dataNascimento, setDataNascimento] = useState('');
   const [disponibilidade, setDisponibilidade] = useState<DisponibilidadeUsuario>('DISPONIVEL');
   const [habilidades, setHabilidades] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     if (usuario) {
+      setNome(usuario.nome ?? '');
       setCargo(usuario.cargo ?? '');
+      setCpf(usuario.cpf ?? '');
+      setDataNascimento(usuario.dataNascimento ?? '');
       setDisponibilidade(usuario.disponibilidade ?? 'DISPONIVEL');
       setHabilidades(usuario.habilidades ?? []);
     }
   }, [usuario]);
 
   async function salvar() {
+    if (!nome.trim()) return;
     setSalvando(true);
     setSalvo(false);
+    setErro(null);
     try {
-      await atualizarMeuPerfil(cargo || null, disponibilidade, habilidades);
+      await atualizarMeuPerfil(nome, cargo || null, cpf || null, dataNascimento || null, disponibilidade, habilidades);
       await recarregarUsuario();
       setSalvo(true);
+    } catch (err: any) {
+      setErro(err?.response?.data?.erro ?? 'Não foi possível salvar o perfil agora.');
     } finally {
       setSalvando(false);
     }
@@ -148,6 +169,72 @@ export function PerfilPage() {
                     color: palette.gold,
                   }}
                 >
+                  <PersonRoundedIcon fontSize="small" />
+                </Box>
+                <Typography variant="subtitle1">Dados pessoais</Typography>
+              </Stack>
+              <Typography variant="body2" sx={{ mb: 2.5 }}>
+                Suas informações básicas de identificação.
+              </Typography>
+
+              <Stack spacing={2.5}>
+                <TextField
+                  label="Nome"
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  required
+                  fullWidth
+                />
+
+                <TextField label="E-mail" value={usuario?.email ?? ''} disabled fullWidth />
+
+                <TextField
+                  label="Data de nascimento"
+                  type="date"
+                  value={dataNascimento}
+                  onChange={(e) => setDataNascimento(e.target.value)}
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+
+                <TextField
+                  label="CPF"
+                  placeholder="000.000.000-00"
+                  value={cpf && usuario?.cpf ? formatarCpf(cpf) : cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  disabled={Boolean(usuario?.cpf)}
+                  fullWidth
+                  slotProps={{
+                    input: {
+                      endAdornment: usuario?.cpf ? (
+                        <Tooltip title="CPF não pode ser alterado depois de cadastrado">
+                          <LockRoundedIcon sx={{ fontSize: 18, color: palette.slateLight }} />
+                        </Tooltip>
+                      ) : undefined,
+                    },
+                  }}
+                />
+              </Stack>
+            </CardContent>
+          </Card>
+        </Reveal>
+
+        <Reveal delay={0.2}>
+          <Card elevation={0}>
+            <CardContent sx={{ p: 3 }}>
+              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
+                <Box
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: 'rgba(176,141,79,0.14)',
+                    color: palette.gold,
+                  }}
+                >
                   <BadgeRoundedIcon fontSize="small" />
                 </Box>
                 <Typography variant="subtitle1">Perfil profissional</Typography>
@@ -195,7 +282,14 @@ export function PerfilPage() {
                   )}
                 />
 
-                <Button variant="contained" onClick={salvar} disabled={salvando} sx={{ alignSelf: 'flex-start' }}>
+                {erro && <Alert severity="error">{erro}</Alert>}
+
+                <Button
+                  variant="contained"
+                  onClick={salvar}
+                  disabled={!nome.trim() || salvando}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
                   {salvando ? 'Salvando...' : salvo ? 'Salvo!' : 'Salvar perfil'}
                 </Button>
               </Stack>

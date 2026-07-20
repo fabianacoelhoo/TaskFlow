@@ -10,6 +10,8 @@ export interface Usuario {
   email: string;
   papel: Papel | null;
   cargo: string | null;
+  cpf: string | null;
+  dataNascimento: string | null;
   disponibilidade: DisponibilidadeUsuario | null;
   habilidades: string[];
 }

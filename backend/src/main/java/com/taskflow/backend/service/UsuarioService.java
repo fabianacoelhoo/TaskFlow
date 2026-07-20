@@ -6,6 +6,7 @@ import com.taskflow.backend.entity.Papel;
 import com.taskflow.backend.entity.Usuario;
 import com.taskflow.backend.exception.AcessoNegadoException;
 import com.taskflow.backend.exception.RecursoNaoEncontradoException;
+import com.taskflow.backend.exception.ValidacaoException;
 import com.taskflow.backend.repository.UsuarioRepository;
 import com.taskflow.backend.security.AutenticacaoService;
 import org.springframework.stereotype.Service;
@@ -49,11 +50,57 @@ public class UsuarioService {
     }
 
     public UsuarioResponseDTO atualizarPerfil(Usuario autor, UsuarioPerfilRequestDTO dto) {
+        if (dto.getNome() == null || dto.getNome().isBlank()) {
+            throw new ValidacaoException("O nome não pode ficar em branco.");
+        }
+
+        autor.setNome(dto.getNome());
         autor.setCargo(dto.getCargo());
+        autor.setDataNascimento(dto.getDataNascimento());
         autor.setDisponibilidade(dto.getDisponibilidade());
         autor.setHabilidades(dto.getHabilidades() != null ? new ArrayList<>(dto.getHabilidades()) : new ArrayList<>());
 
+        // CPF só pode ser definido uma vez: depois de gravado, ignora qualquer tentativa de troca.
+        if (autor.getCpf() == null && dto.getCpf() != null && !dto.getCpf().isBlank()) {
+            autor.setCpf(validarENormalizarCpf(dto.getCpf()));
+        }
+
         return toResponseDTO(usuarioRepository.save(autor));
+    }
+
+    private String validarENormalizarCpf(String cpfBruto) {
+        String cpf = cpfBruto.replaceAll("\\D", "");
+        if (!cpfValido(cpf)) {
+            throw new ValidacaoException("CPF inválido.");
+        }
+        return cpf;
+    }
+
+    private boolean cpfValido(String cpf) {
+        if (cpf.length() != 11 || cpf.chars().distinct().count() == 1) {
+            return false;
+        }
+
+        int[] digitos = cpf.chars().map(c -> c - '0').toArray();
+
+        int soma1 = 0;
+        for (int i = 0; i < 9; i++) {
+            soma1 += digitos[i] * (10 - i);
+        }
+        int resto1 = (soma1 * 10) % 11;
+        if (resto1 == 10) resto1 = 0;
+        if (resto1 != digitos[9]) {
+            return false;
+        }
+
+        int soma2 = 0;
+        for (int i = 0; i < 10; i++) {
+            soma2 += digitos[i] * (11 - i);
+        }
+        int resto2 = (soma2 * 10) % 11;
+        if (resto2 == 10) resto2 = 0;
+
+        return resto2 == digitos[10];
     }
 
     private UsuarioResponseDTO toResponseDTO(Usuario usuario) {
@@ -63,6 +110,8 @@ public class UsuarioService {
         dto.setEmail(usuario.getEmail());
         dto.setPapel(usuario.getPapel());
         dto.setCargo(usuario.getCargo());
+        dto.setCpf(usuario.getCpf());
+        dto.setDataNascimento(usuario.getDataNascimento());
         dto.setDisponibilidade(usuario.getDisponibilidade());
         dto.setHabilidades(usuario.getHabilidades());
         return dto;
